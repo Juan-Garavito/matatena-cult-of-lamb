@@ -1,0 +1,211 @@
+/* ===== SHARED STYLES — Cult of the Lamb Theme ===== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
+
+:root {
+  /* PRIMARY — dominant surfaces */
+  --bg-parchment: #f0e8d0;
+  --bg-parchment-warm: #e8dab8;
+  --bg-parchment-deep: #d4c49a;
+
+  /* STRUCTURE — text, borders, frames */
+  --ink-void: #0d0a0e;
+  --ink-dark: #1a1018;
+  --ink-mid: #2e2030;
+  --ink-faded: #4a3d50;
+
+  /* ACCENT — use sparingly, never as fill, only as mark */
+  --red-blood: #6b0000;
+  --red-bright: #cc1a1a;
+
+  /* SUPPORT — wood, earth, teal for structural detail only */
+  --border-wood: #3d2b1a;
+  --border-teal: #3d5c50;
+  --gold: #a07820;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'IM Fell English', serif;
+  background-color: var(--bg-parchment);
+  min-height: 100vh;
+  color: var(--ink-void);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scattered decorative symbols */
+body::before {
+  content: '👁 ✦ ◈ ⊕ 👁 ✦ ◈ ⊕ 👁 ✦ ◈ ✦ 👁 ◈ ⊕ ✦ 👁 ◈';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 2rem;
+  color: var(--cream-dim);
+  opacity: 0.06;
+  word-spacing: 4rem;
+  line-height: 6rem;
+  letter-spacing: 3rem;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  padding: 2rem;
+}
+
+/* ===== ANIMATIONS ===== */
+
+@keyframes lamb-enter {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes lamb-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25%       { transform: rotate(-3deg); }
+  75%       { transform: rotate(3deg); }
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== MESSAGES ===== */
+
+.message {
+  padding: 1rem;
+  margin-top: 1rem;
+  display: none;
+  border: 2px solid;
+  font-family: 'IM Fell English', serif;
+  font-size: 1rem;
+  border-radius: 2px;
+}
+
+.message.show {
+  display: block;
+  animation: lamb-enter 0.3s ease-in-out;
+}
+
+.message.success {
+  background: var(--bg-parchment-warm);
+  border-color: var(--ink-mid);
+  color: var(--ink-void);
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.1);
+}
+
+.message.error {
+  background: var(--bg-parchment-warm);
+  border-color: var(--red-bright);
+  color: var(--red-blood);
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.1);
+}
+
+/* ===== KEY HINTS ===== */
+
+.key-hints {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.key-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  color: var(--ink-mid);
+}
+
+.key-badge {
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  color: var(--ink-void);
+  background: var(--bg-parchment-deep);
+  border: 1px solid var(--border-wood);
+  border-radius: 2px;
+  padding: 2px 7px;
+  box-shadow: 0 2px 0 var(--border-wood);
+}
+
+/* ===== PANEL (shared between lobby container & game panels) ===== */
+
+.panel {
+  background: var(--bg-parchment-warm);
+  border: 2px solid var(--border-wood);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 16px rgba(0, 0, 0, 0.12),
+    0 3px 10px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+/* Corner decorations for panels */
+.panel::before,
+.panel::after {
+  content: '✦';
+  position: absolute;
+  color: var(--red-bright);
+  font-size: 10px;
+  opacity: 0.7;
+}
+.panel::before { top: 6px;  left: 8px; }
+.panel::after  { bottom: 6px; right: 8px; }
+
+/* ===== ORGANIC RED BORDER EFFECT ===== */
+
+.parchment-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(61, 43, 26, 0.18) 85%,
+    rgba(13, 10, 14, 0.35) 100%
+  );
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* ===== CULT OF THE LAMB BUTTONS ===== */
+
+.btn-lamb {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-void);
+  background: var(--bg-parchment-warm);
+  border: 2px solid var(--border-wood);
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 10px 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 3px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-lamb:hover {
+  background: var(--bg-parchment-deep);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 5px 10px rgba(0, 0, 0, 0.35);
+}
+
+.btn-lamb:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}

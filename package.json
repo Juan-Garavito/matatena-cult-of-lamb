@@ -1,0 +1,27 @@
+{
+  "name": "matatena",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "src/server/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server/server.ts",
+    "build": "tsc",
+    "start": "node dist/server/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "5.2.1",
+    "socket.io": "4.8.3",
+    "socket.io-client": "4.8.3",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "25.6.0",
+    "tsx": "4.21.0",
+    "typescript": "6.0.2"
+  }
+}

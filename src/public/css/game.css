@@ -1,0 +1,662 @@
+/* ===== GAME VIEW STYLES ===== */
+
+:root {
+  /* Dice */
+  --dice-bg:     var(--bg-parchment);
+  --dice-dot:    var(--ink-void);
+  --dice-border: var(--ink-mid);
+}
+
+body {
+  padding: 0.5rem;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== HEADER ===== */
+
+.header {
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+.header h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--ink-void);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 -1px 0 rgba(0,0,0,0.2);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+}
+
+.header p {
+  font-family: 'IM Fell English', serif;
+  font-size: 1rem;
+  color: var(--ink-dark);
+  margin-bottom: 0.2rem;
+}
+
+.player-name-display {
+  color: var(--ink-void) !important;
+  font-family: 'Cinzel', serif !important;
+  font-weight: 700 !important;
+  font-size: 1.1rem !important;
+}
+
+/* ===== GAME BOARD ===== */
+
+.game-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+/* ===== PLAYER SECTION ===== */
+
+.player-section {
+  padding: 1rem;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Smaller corner decorations for player section */
+.player-section::before,
+.player-section::after {
+  font-size: 0.8rem;
+}
+.player-section::before { top: 6px; left: 8px; }
+.player-section::after  { bottom: 6px; right: 8px; }
+
+.player-section.inactive {
+  opacity: 0.65;
+  border-color: var(--border-wood);
+  box-shadow:
+    inset 0 0 10px rgba(0,0,0,0.05),
+    0 2px 4px rgba(0,0,0,0.1);
+}
+
+.player-section.inactive::before,
+.player-section.inactive::after {
+  opacity: 0.3;
+}
+
+/* ===== PLAYER HEADER ===== */
+
+.player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Character name with cult-style decorations */
+.player-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ink-void);
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 -1px 0 rgba(0,0,0,0.1);
+}
+
+.player-name::before { content: '〜◦ '; color: var(--ink-mid); font-size: 0.7rem; opacity: 0.6; }
+.player-name::after  { content: ' ◦〜'; color: var(--ink-mid); font-size: 0.7rem; opacity: 0.6; }
+
+.player-score {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--ink-void);
+  background: var(--bg-parchment-deep);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border-wood);
+  border-radius: 2px;
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.1);
+}
+
+.player-turn-badge {
+  background: var(--bg-parchment-warm);
+  color: var(--ink-void);
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border-wood);
+  border-radius: 2px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.player-turn-badge:not(.inactive) {
+  border-bottom: 2px solid var(--red-bright);
+}
+
+.player-turn-badge.inactive {
+  border-color: rgba(61,43,26,0.3);
+  color: var(--ink-faded);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ===== DICE AREA ===== */
+
+.player-dice-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  margin: 0.6rem 0;
+  padding: 0.6rem;
+  background: var(--bg-parchment-deep);
+  border: 1px solid var(--border-wood);
+  border-radius: 3px;
+  min-height: 80px;
+  position: relative;
+  overflow: visible;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dice-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.dice-label-inline {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.55rem;
+  color: var(--ink-void);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+}
+
+/* ===== CSS DICE FACE ===== */
+
+.dice-face-wrapper {
+  width: 64px;
+  height: 64px;
+  perspective: 600px;
+}
+
+.dice-face {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  background: var(--dice-bg);
+  border: 3px solid var(--dice-border);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    0 0 0 1px var(--border-wood);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 6px;
+  gap: 2px;
+}
+
+.dice-face.rolling {
+  animation: diceRoll3D 0.6s ease-in-out;
+}
+
+.dice-dot-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dice-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dice-dot);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dice-dot.invisible {
+  visibility: hidden;
+}
+
+@keyframes diceRoll3D {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    transform: rotateX(360deg) rotateY(180deg) scale(0.8);
+    opacity: 0.7;
+  }
+  50% {
+    transform: rotateX(720deg) rotateY(360deg) scale(1.12);
+    opacity: 1;
+  }
+  75% {
+    transform: rotateX(900deg) rotateY(450deg) scale(1.04);
+  }
+  100% {
+    transform: rotateX(1080deg) rotateY(540deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ===== SMALL DICE FACE IN CELLS ===== */
+
+.cell-dice-face {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: var(--dice-bg);
+  border: 2px solid var(--dice-border);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 3px;
+  gap: 1px;
+  margin: 0 auto;
+}
+
+.cell-dice-face .dice-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.cell-dice-face.dice-drop {
+  animation: diceDrop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes diceDrop {
+  0% {
+    transform: translateY(-80px) rotate(-15deg) scale(0.6);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(5px) rotate(3deg) scale(1.05);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(-4px) rotate(-1deg) scale(0.98);
+  }
+  80% {
+    transform: translateY(2px) rotate(0deg) scale(1.01);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ===== TABLE GRID (Board Frame) ===== */
+
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-parchment-warm);
+  border: 2px solid var(--border-wood);
+  border-radius: 3px;
+  padding: 0.4rem;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.05), 0 4px 6px rgba(0,0,0,0.2);
+  position: relative;
+}
+
+.column {
+  background: var(--bg-parchment);
+  border: 1px solid rgba(61, 43, 26, 0.2);
+  padding: 0.4rem;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.column:hover {
+  background: var(--bg-parchment-warm);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.05);
+  transform: scale(1.03);
+}
+
+.column.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.column.disabled:hover {
+  background: var(--bg-parchment);
+  box-shadow: none;
+  transform: none;
+}
+
+.column-values {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.value-item {
+  background: var(--bg-parchment-warm);
+  padding: 0.4rem;
+  border: 1px solid rgba(61, 43, 26, 0.2);
+  text-align: center;
+  font-weight: 600;
+  color: var(--ink-void);
+  font-family: 'IM Fell English', serif;
+  font-size: 0.9rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 2px;
+  transition: background 0.2s ease-in-out;
+}
+
+.value-item.empty {
+  color: var(--ink-faded);
+  border-style: dashed;
+  border-color: rgba(61, 43, 26, 0.2);
+}
+
+.value-item.occupied {
+  background: var(--bg-parchment-deep);
+}
+
+.column-points {
+  border-top: 1px solid var(--red-blood);
+  padding-top: 0.4rem;
+  text-align: center;
+  color: var(--ink-dark);
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-shadow: none;
+}
+
+/* ===== GAME OVER STATUS ===== */
+
+.game-status {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 5, 5, 0.9);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  animation: fade-in 0.4s ease-out;
+}
+
+.game-status.show {
+  display: flex;
+}
+
+.modal-panel {
+  background: var(--bg-parchment-warm);
+  padding: 3.5rem 2.5rem;
+  border: 2px solid var(--border-wood);
+  border-radius: 2px;
+  max-width: 550px;
+  width: 95%;
+  position: relative;
+  text-align: center;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0,0,0,0.4);
+  animation: lamb-enter 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-panel::before,
+.modal-panel::after {
+  content: '✦';
+  position: absolute;
+  color: var(--red-bright);
+  font-size: 1.2rem;
+  opacity: 0.8;
+  text-shadow: none;
+}
+.modal-panel::before { top: 12px; left: 15px; }
+.modal-panel::after  { bottom: 12px; right: 15px; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.game-status h2 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: var(--ink-void);
+  margin-bottom: 1rem;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+}
+
+.game-status p {
+  font-family: 'IM Fell English', serif;
+  font-size: 1.1rem;
+  color: var(--ink-dark);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.back-button {
+  padding: 10px 24px;
+}
+
+/* ===== GAME AMBIENT ANIMATIONS ===== */
+
+@keyframes lamb-pulse {
+  0%, 100% { transform: scale(1);     opacity: 1; }
+  50%       { transform: scale(1.03); opacity: 0.9; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1;   transform: scaleY(1); }
+  33%       { opacity: 0.8; transform: scaleY(0.97); }
+  66%       { opacity: 0.9; transform: scaleY(1.02); }
+}
+
+/* Pulse on active player dice area */
+.player-dice-area.active-glow {
+  animation: lamb-pulse 2s ease-in-out infinite;
+}
+
+/* Active player section subtle breathing */
+.player-section:not(.inactive) {
+  animation: flicker 3s ease-in-out infinite;
+}
+
+/* ===== KEY HINTS (game-specific spacing) ===== */
+
+.key-hints {
+  margin-top: 0.8rem;
+  padding: 0.5rem;
+}
+
+.key-hint {
+  font-size: 0.7rem;
+}
+
+/* ===== GAME MESSAGES (different margin than lobby) ===== */
+
+.message {
+  text-align: center;
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+/* ===== DICE MULTIPLIER EFFECTS ===== */
+
+@keyframes dice-glow-pulse {
+  0%, 100% { 
+    filter: drop-shadow(0 0 2px var(--gold)) drop-shadow(0 0 4px var(--red-blood));
+  }
+  50% { 
+    filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 10px var(--red-bright));
+  }
+}
+
+.dice-multiplied {
+  animation: dice-glow-pulse 2s ease-in-out infinite;
+  z-index: 10;
+  position: relative;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .game-board {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header h1 {
+    font-size: 1.2rem;
+  }
+}
+
+/* ===== TOAST NOTIFICATIONS ===== */
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 280px;
+  max-width: 380px;
+  background: var(--bg-parchment-warm);
+  border: 2px solid var(--border-wood);
+  border-left: 5px solid var(--ink-void);
+  padding: 1rem;
+  color: var(--ink-void);
+  font-family: 'IM Fell English', serif;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2), inset 0 0 10px rgba(0,0,0,0.05);
+  position: relative;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border-radius: 2px;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast.error {
+  border-left-color: var(--red-bright);
+  color: var(--red-blood);
+}
+
+.toast.success {
+  border-left-color: var(--gold);
+}
+
+.toast::before {
+  content: '✦';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.7rem;
+  color: var(--red-bright);
+  opacity: 0.7;
+}
+
+.toast-content {
+  line-height: 1.4;
+}
+
+/* ===== RITUAL LOADING MODAL ===== */
+
+.ritual-loading {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-void);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.8s ease-out, visibility 0.8s;
+  text-align: center;
+}
+
+.ritual-loading.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ritual-symbol {
+  font-size: 5rem;
+  color: var(--red-bright);
+  margin-bottom: 2rem;
+  animation: ritual-spin 4s linear infinite, ritual-pulse 2s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(204, 26, 26, 0.4);
+}
+
+.ritual-loading h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.5rem;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px rgba(245, 199, 92, 0.3);
+}
+
+.ritual-loading p {
+  font-family: 'IM Fell English', serif;
+  color: var(--cream-dim);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+@keyframes ritual-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ritual-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+}
+

@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matatena - Ritual</title>
+    <link rel="stylesheet" href="/css/shared.css" />
+    <link rel="stylesheet" href="/css/game.css" />
+  </head>
+  <body>
+    <div id="ritualLoading" class="ritual-loading">
+      <div class="ritual-content">
+        <div class="ritual-symbol">◈</div>
+        <h2>✦ CONECTANDO AL RITUAL ✦</h2>
+        <p>Buscando el favor de los dioses...</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="header">
+        <h1>MATATENA</h1>
+        <p class="player-name-display">
+          Adepto: <span data-current-player-name>-</span>
+        </p>
+      </div>
+
+      <div class="game-board">
+        <!-- Adepto 1 -->
+        <div class="player-section panel" id="player1Section">
+          <div class="player-header">
+            <div class="player-info">
+              <div class="player-name" id="player1Name">Adepto 1</div>
+              <div class="player-score" id="player1Score">0 pts</div>
+            </div>
+            <div class="player-turn-badge" id="player1Badge">Pausa</div>
+          </div>
+
+          <!-- Dice inside player 1 area -->
+          <div class="player-dice-area" id="player1Dice">
+            <div class="dice-face-wrapper dice-hidden">
+              <div class="dice-face" id="player1DiceFace"></div>
+            </div>
+          </div>
+
+          <div class="table-grid" id="player1Table"></div>
+        </div>
+
+        <!-- Adepto 2 -->
+        <div class="player-section panel" id="player2Section">
+          <div class="player-header">
+            <div class="player-info">
+              <div class="player-name" id="player2Name">Adepto 2</div>
+              <div class="player-score" id="player2Score">0 pts</div>
+            </div>
+            <div class="player-turn-badge" id="player2Badge">Pausa</div>
+          </div>
+
+          <!-- Dice inside player 2 area -->
+          <div class="player-dice-area" id="player2Dice">
+            <div class="dice-face-wrapper dice-hidden">
+              <div class="dice-face" id="player2DiceFace"></div>
+            </div>
+          </div>
+
+          <div class="table-grid" id="player2Table"></div>
+        </div>
+      </div>
+
+      <!-- Estado del Juego (Fin) -->
+      <div class="game-status" id="gameStatus">
+        <h2 id="statusTitle">¡Ha terminado el juego!</h2>
+        <p id="statusMessage"></p>
+        <button class="back-button btn-lamb" onclick="window.location.href = '/'">
+          Volver al Inicio
+        </button>
+      </div>
+
+      
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/js/env.js"></script>
+    <script src="/js/game.js"></script>
+  </body>
+</html>

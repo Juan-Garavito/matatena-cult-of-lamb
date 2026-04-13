@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matatena - Altar del Ritual</title>
+    <link rel="stylesheet" href="/css/shared.css" />
+    <link rel="stylesheet" href="/css/index.css" />
+  </head>
+  <body>
+    <div class="container panel">
+      <!-- Organic red border overlay -->
+      <div class="organic-border"></div>
+
+      <!-- Tab Navigation -->
+      <div class="tabs">
+        <button class="tab-button active" data-tab="unirse">Unirse</button>
+        <button class="tab-button" data-tab="crear">Crear Sala</button>
+      </div>
+
+      <!-- Tab: Unirse (Join) -->
+      <div class="tab-content active" id="tab-unirse">
+        <h2>
+          Unirse al Ritual
+        </h2>
+        <form id="joinGameForm">
+          <div class="form-group">
+            <label for="playerName">Nombre de Adepto:</label>
+            <input
+              type="text"
+              id="playerName"
+              placeholder="Ingresa tu nombre..."
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="gameId">ID del Ritual:</label>
+            <input
+              type="text"
+              id="gameId"
+              placeholder="Ingresa el ID de la sala..."
+              required
+            />
+          </div>
+
+          <button type="submit" class="btn-lamb">Unirse al Altar</button>
+
+          <div class="loading" id="joinGameLoading">
+            <div class="spinner"></div>
+            <p>Invocando conexión...</p>
+          </div>
+
+          <div class="message" id="joinGameMessage"></div>
+        </form>
+      </div>
+
+      <!-- Tab: Crear Sala (Create Room) -->
+      <div class="tab-content" id="tab-crear">
+        <h2>
+          Crear Altar
+        </h2>
+        <form id="createGameForm">
+          <div class="form-group">
+            <label for="player1Name">Nombre de Adepto:</label>
+            <input
+              type="text"
+              id="player1Name"
+              placeholder="Ingresa tu nombre..."
+              required
+            />
+          </div>
+
+          <button type="submit" class="btn-lamb">Erigir Altar</button>
+
+          <div class="loading" id="createGameLoading">
+            <div class="spinner"></div>
+            <p>Preparando el ritual...</p>
+          </div>
+
+        </form>
+      </div>
+
+
+    </div>
+
+    <script src="/js/env.js"></script>
+    <script src="/js/index.js"></script>
+  </body>
+</html>
