@@ -27,6 +27,9 @@
       <div class="game-board">
         <!-- Adepto 1 -->
         <div class="player-section panel" id="player1Section">
+          <div class="speech-bubble" id="player1Bubble">
+            <span class="speech-bubble-text"></span>
+          </div>
           <div class="player-header">
             <div class="player-info">
               <div class="player-name" id="player1Name">Adepto 1</div>
@@ -47,6 +50,9 @@
 
         <!-- Adepto 2 -->
         <div class="player-section panel" id="player2Section">
+          <div class="speech-bubble" id="player2Bubble">
+            <span class="speech-bubble-text"></span>
+          </div>
           <div class="player-header">
             <div class="player-info">
               <div class="player-name" id="player2Name">Adepto 2</div>
@@ -64,6 +70,13 @@
 
           <div class="table-grid" id="player2Table"></div>
         </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="message-input-area">
+        <input type="text" id="messageInput" class="message-input"
+          placeholder="Susurra al ritual..." maxlength="80" />
+        <button id="messageSendBtn" class="btn-lamb">Enviar</button>
       </div>
 
       <!-- Estado del Juego (Fin) -->

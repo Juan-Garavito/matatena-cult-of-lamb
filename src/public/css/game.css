@@ -63,6 +63,7 @@ body {
 .player-section {
   padding: 1rem;
   transition: all 0.3s ease-in-out;
+  position: relative;
 }
 
 /* Smaller corner decorations for player section */
@@ -84,6 +85,71 @@ body {
 .player-section.inactive::before,
 .player-section.inactive::after {
   opacity: 0.3;
+}
+
+/* ===== SPEECH BUBBLE ===== */
+
+@keyframes bubblePop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.speech-bubble {
+  position: relative;
+  background: var(--bg-parchment-warm);
+  border: 2px solid var(--border-wood);
+  border-radius: 12px;
+  padding: 0;
+  margin-bottom: 0;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--ink-void);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.18), inset 0 0 8px rgba(0,0,0,0.05);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease, padding 0.3s ease;
+  pointer-events: none;
+}
+
+.speech-bubble.show {
+  max-height: 120px;
+  opacity: 1;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.6rem;
+  pointer-events: auto;
+  animation: bubblePop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.speech-bubble.show::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px 8px 0 8px;
+  border-style: solid;
+  border-color: var(--border-wood) transparent transparent transparent;
+}
+
+.speech-bubble.show::before {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 9px 7px 0 7px;
+  border-style: solid;
+  border-color: var(--bg-parchment-warm) transparent transparent transparent;
+  z-index: 1;
+}
+
+.speech-bubble-text {
+  display: block;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 /* ===== PLAYER HEADER ===== */
@@ -404,6 +470,53 @@ body {
   text-shadow: none;
 }
 
+/* ===== MESSAGE INPUT ===== */
+
+.message-input-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.message-input {
+  flex: 1;
+  max-width: 420px;
+  background: var(--bg-parchment-deep);
+  border: 2px solid var(--border-wood);
+  border-radius: 2px;
+  padding: 0.55rem 0.9rem;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--ink-void);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.1);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.message-input::placeholder {
+  color: var(--ink-faded);
+  opacity: 0.7;
+}
+
+.message-input:focus {
+  border-color: var(--red-bright);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.1), 0 0 0 2px rgba(204,26,26,0.15);
+}
+
+@media (max-width: 768px) {
+  .message-input-area {
+    flex-direction: row;
+    padding: 0 0.5rem;
+  }
+  .message-input {
+    max-width: none;
+  }
+}
+
 /* ===== GAME OVER STATUS ===== */
 
 .game-status {
@@ -548,58 +661,108 @@ body {
 
 /* ===== TOAST NOTIFICATIONS ===== */
 
+@keyframes toast-pop {
+  0%   { transform: translateY(-60px) scale(0.75); opacity: 0; }
+  60%  { transform: translateY(8px)   scale(1.06); opacity: 1; }
+  80%  { transform: translateY(-3px)  scale(0.98); }
+  100% { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   pointer-events: none;
 }
 
 .toast {
-  min-width: 280px;
-  max-width: 380px;
-  background: var(--bg-parchment-warm);
+  min-width: 300px;
+  max-width: 480px;
+  background: var(--ink-dark);
   border: 2px solid var(--border-wood);
-  border-left: 5px solid var(--ink-void);
-  padding: 1rem;
-  color: var(--ink-void);
+  border-radius: 28px 6px 28px 6px;
+  padding: 0.9rem 2.2rem 0.9rem 2.2rem;
+  color: var(--bg-parchment);
   font-family: 'IM Fell English', serif;
-  font-size: 1rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2), inset 0 0 10px rgba(0,0,0,0.05);
+  font-style: italic;
+  font-size: 1.05rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.55),
+    0 0 0 3px var(--border-wood),
+    inset 0 0 24px rgba(0,0,0,0.35);
   position: relative;
   pointer-events: auto;
   opacity: 0;
-  transform: translateX(100%);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  border-radius: 2px;
+  transform: translateY(-60px) scale(0.75);
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease;
 }
 
 .toast.show {
-  opacity: 1;
-  transform: translateX(0);
+  animation: toast-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .toast.error {
-  border-left-color: var(--red-bright);
-  color: var(--red-blood);
+  border-color: var(--red-bright);
+  color: var(--red-bright);
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.55),
+    0 0 0 3px var(--red-blood),
+    0 0 28px rgba(204,26,26,0.5),
+    inset 0 0 28px rgba(107,0,0,0.25);
 }
 
 .toast.success {
-  border-left-color: var(--gold);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.55),
+    0 0 0 3px var(--border-wood),
+    0 0 22px rgba(160,120,32,0.4),
+    inset 0 0 20px rgba(160,120,32,0.1);
 }
 
 .toast::before {
   content: '✦';
   position: absolute;
-  top: 6px;
-  right: 8px;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
   font-size: 0.7rem;
   color: var(--red-bright);
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+.toast::after {
+  content: '✦';
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--red-bright);
+  opacity: 0.6;
+}
+
+.toast.error::before,
+.toast.error::after {
+  color: var(--red-bright);
+  opacity: 1;
+}
+
+.toast.success::before,
+.toast.success::after {
+  color: var(--gold);
+  opacity: 0.8;
 }
 
 .toast-content {

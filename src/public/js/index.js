@@ -39,6 +39,7 @@ document
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({type: "multiplayer"}),
       });
 
       if (!createResponse.ok) throw new Error("Error al crear la sala");

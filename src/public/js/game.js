@@ -2,6 +2,7 @@ let currentPlayer = null;
 let gameId = null;
 let gameState = null;
 let previousTables = [null, null];
+const speechBubbleTimers = [null, null];
 
 (function loadPlayerName() {
   const playerJSON = localStorage.getItem("player");
@@ -392,6 +393,45 @@ function showWaitingForPlayer() {
 function resetGame() {
   socket.emit("reset_game/"+gameId);
 }
+
+function showSpeechBubble(playerIndex, message) {
+  const bubble = document.getElementById(`player${playerIndex + 1}Bubble`);
+  if (!bubble) return;
+  const textEl = bubble.querySelector(".speech-bubble-text");
+  if (textEl) textEl.textContent = message;
+  bubble.classList.add("show");
+
+  if (speechBubbleTimers[playerIndex]) clearTimeout(speechBubbleTimers[playerIndex]);
+  speechBubbleTimers[playerIndex] = setTimeout(() => {
+    bubble.classList.remove("show");
+    speechBubbleTimers[playerIndex] = null;
+  }, 6000);
+}
+
+function sendMessage() {
+  const input = document.getElementById("messageInput");
+  if (!input) return;
+  const msg = input.value.trim();
+  if (!msg) return;
+  socket.emit("message/" + gameId, {
+    id_game: gameId,
+    message: msg,
+    id_player: currentPlayer.id,
+  });
+  input.value = "";
+}
+
+socket.on("message/" + gameId, ({ message, id_player }) => {
+  if (!gameState) return;
+  const playerIndex = gameState.players.findIndex((p) => p.id === id_player);
+  if (playerIndex === -1) return;
+  showSpeechBubble(playerIndex, message);
+});
+
+const messageInput = document.getElementById("messageInput");
+const messageSendBtn = document.getElementById("messageSendBtn");
+if (messageInput) messageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+if (messageSendBtn) messageSendBtn.addEventListener("click", sendMessage);
 
 
 socket.on("connect", () => {

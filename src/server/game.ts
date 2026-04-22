@@ -1,25 +1,35 @@
-import type { GameWrapper, Table, Player, Game } from "./types/game.types.js";
+import type {
+  GameWrapper,
+  Table,
+  Player,
+  Game,
+  TypeGame,
+  TypePlayer,
+} from "./types/game.types.js";
 import { randomUUID } from "crypto";
 
-let games : GameWrapper[] = [
+let games: GameWrapper[] = [];
 
-];
+const getAllGames = (): GameWrapper[] => games;
 
-const getAllGames = () : GameWrapper[] => games;
+const getGameById = (id_game: string): GameWrapper | undefined =>
+  games.find((g) => g.id_game == id_game);
 
-const getGameById = (id_game : string) : GameWrapper | undefined => games.find(g => g.id_game == id_game);
-
-const resetGame = (id_game : string) : void => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
+const resetGame = (id_game: string): void => {
+  const gameWrapper = games.find((g) => g.id_game === id_game);
   if (!gameWrapper) {
     return;
   }
-  gameWrapper.game.players.forEach(player => {
-    player.table = [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]];
+  gameWrapper.game.players.forEach((player) => {
+    player.table = [
+      [-1, -1, -1],
+      [-1, -1, -1],
+      [-1, -1, -1],
+    ];
     player.points = {
       col1: 0,
       col2: 0,
-      col3: 0
+      col3: 0,
     };
     player.totalPoints = 0;
   });
@@ -29,26 +39,30 @@ const resetGame = (id_game : string) : void => {
   gameWrapper.game.dice = updateDice();
 };
 
-const createGame = () : {ok: boolean, error?: string, data?: GameWrapper} => {
-  const newGame : GameWrapper = {
-    id_game: 'ritual_' + Date.now() + '_' + randomUUID(),
+const createGame = (
+  type: TypeGame,
+): { ok: boolean; error?: string; data?: GameWrapper } => {
+  const newGame: GameWrapper = {
+    id_game: "ritual_" + Date.now() + "_" + randomUUID(),
     game: {
       players: [],
       turn: Math.floor(Math.random() * 2),
       state: "waiting",
       winner: null,
-       dice: updateDice()
-    }
-   
+      dice: updateDice(),
+      type: type,
+    },
   };
 
   games.push(newGame);
   return { ok: true, data: newGame };
 };
 
-const deleteGame = (id_game : string) : {ok: boolean, error?: string, message?: string} => {
-  const index = games.findIndex(g => g.id_game === id_game);
-  
+const deleteGame = (
+  id_game: string,
+): { ok: boolean; error?: string; message?: string } => {
+  const index = games.findIndex((g) => g.id_game === id_game);
+
   if (index === -1) {
     return { ok: false, error: "Juego no encontrado." };
   }
@@ -57,14 +71,13 @@ const deleteGame = (id_game : string) : {ok: boolean, error?: string, message?: 
   return { ok: true, message: `Juego ${id_game} eliminado.` };
 };
 
-
-const checkFinish = (table : Table) => {
+const checkFinish = (table: Table) => {
   return !table.flat().includes(-1) ? "finish" : "playing";
 };
 
-const checkWinner = (id_game : string) : Player | null => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
-  
+const checkWinner = (id_game: string): Player | null => {
+  const gameWrapper = games.find((g) => g.id_game === id_game);
+
   if (!gameWrapper) {
     return null;
   }
@@ -75,12 +88,12 @@ const checkWinner = (id_game : string) : Player | null => {
   if (!player1 || !player2) {
     return null;
   }
-  
+
   return player1.totalPoints > player2.totalPoints ? player1 : player2;
 };
 
 const validatePlay = (column: number, id_game: string, id_player: string) => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
+  const gameWrapper = games.find((g) => g.id_game === id_game);
 
   if (!gameWrapper) {
     return { ok: false as const, error: "Juego no encontrado." };
@@ -117,7 +130,7 @@ const validatePlay = (column: number, id_game: string, id_player: string) => {
     return { ok: false as const, error: "Columna inválida." };
   }
 
-  const index = col.findIndex(cell => cell === -1);
+  const index = col.findIndex((cell) => cell === -1);
 
   if (index === -1) {
     return { ok: false as const, error: "Columna llena." };
@@ -130,27 +143,27 @@ const validatePlay = (column: number, id_game: string, id_player: string) => {
       col,
       index,
       game,
-      opponent
-    }
+      opponent,
+    },
   };
 };
 
-const updatePoints = (column : number, id_game : string) : void => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
+const updatePoints = (column: number, id_game: string): void => {
+  const gameWrapper = games.find((g) => g.id_game === id_game);
 
   if (!gameWrapper) {
     return;
   }
 
   const game = gameWrapper.game;
-  game.players.forEach(player =>{
+  game.players.forEach((player) => {
     const col = player.table[column];
     if (!col) return;
 
     let columnPoints = 0;
-    
-    const validValues = col.filter(cell => cell !== -1);
-    
+
+    const validValues = col.filter((cell) => cell !== -1);
+
     const colKey = `col${column + 1}` as keyof Player["points"];
 
     if (validValues.length === 0) {
@@ -158,12 +171,12 @@ const updatePoints = (column : number, id_game : string) : void => {
       updateTotalPoints(player.id, id_game);
       return;
     }
-    
+
     const frequency: Record<number, number> = {};
-    validValues.forEach(val => {
+    validValues.forEach((val) => {
       frequency[val] = (frequency[val] || 0) + 1;
     });
-    
+
     Object.entries(frequency).forEach(([value, count]) => {
       columnPoints += Number(value) * count * count;
     });
@@ -171,69 +184,67 @@ const updatePoints = (column : number, id_game : string) : void => {
     player.points[colKey] = columnPoints;
     updateTotalPoints(player.id, id_game);
   });
- 
 };
 
-const updateDice = () : number => {
+const updateDice = (): number => {
   return Math.floor(Math.random() * 6) + 1;
-}
+};
 
-const erasePointsOpponent = (column : number, value : number, id_player: string, id_game : string) : void => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
+const erasePointsOpponent = (
+  column: number,
+  value: number,
+  id_player: string,
+  id_game: string,
+): void => {
+  const gameWrapper = games.find((g) => g.id_game === id_game);
 
   if (!gameWrapper) {
     return;
   }
 
   const game = gameWrapper.game;
-  const player = game.players.find(p => p.id === id_player);
+  const player = game.players.find((p) => p.id === id_player);
   if (!player) return;
 
   const col = player.table[column];
   if (!col) return;
 
-  const newValues = col.map((cell) => cell === value ? -1 : cell);
-  
+  const newValues = col.map((cell) => (cell === value ? -1 : cell));
+
   player.table[column] = newValues;
   updatePoints(column, id_game);
-}
+};
 
-const updateTotalPoints = (id_player: string, id_game : string) : void => {
-  const gameWrapper = games.find(g => g.id_game === id_game);
+const updateTotalPoints = (id_player: string, id_game: string): void => {
+  const gameWrapper = games.find((g) => g.id_game === id_game);
 
   if (!gameWrapper) {
     return;
   }
 
   const game = gameWrapper.game;
-  const player = game.players.find(p => p.id === id_player);
+  const player = game.players.find((p) => p.id === id_player);
   if (!player) return;
   const total = Object.values(player.points).reduce((sum, col) => sum + col, 0);
   player.totalPoints = total;
 };
 
-
-const doPlay = (
-  column: number,
-  id_player: string,
-  id_game: string
-) => {
-  const {ok, error, data} = validatePlay(column, id_game, id_player);
+const doPlay = (column: number, id_player: string, id_game: string) => {
+  const { ok, error, data } = validatePlay(column, id_game, id_player);
 
   if (!ok) {
     return { ok: false, error: error };
   }
 
-  const { player, col, index , game, opponent } = data;
+  const { player, col, index, game, opponent } = data;
   const value = game.dice;
   col[index] = value;
 
-  
   console.log(`Jugada: id_game=${id_game}, column=${column}, dice=${value}`);
   erasePointsOpponent(column, value, opponent.id, id_game);
   updatePoints(column, id_game);
 
-  game.state = checkFinish(player.table)
+  game.state = checkFinish(player.table);
 
   if (game.state === "finish") {
     const winner = checkWinner(id_game);
@@ -247,21 +258,24 @@ const doPlay = (
   return { ok: true, gameState: game };
 };
 
-
-const createPlayer = (name : string) : Player => {
-  return  {
+const createPlayer = (name: string, type: TypePlayer): Player => {
+  return {
     id: randomUUID(),
     name: name,
-    table: [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]],
+    table: [
+      [-1, -1, -1],
+      [-1, -1, -1],
+      [-1, -1, -1],
+    ],
     points: {
       col1: 0,
       col2: 0,
-      col3: 0
+      col3: 0,
     },
-    totalPoints: 0
+    totalPoints: 0,
+    type: type,
   };
 };
-
 
 export {
   getAllGames,
@@ -274,5 +288,5 @@ export {
   updatePoints,
   updateTotalPoints,
   createPlayer,
-  resetGame
+  resetGame,
 };
