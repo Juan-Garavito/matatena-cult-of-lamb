@@ -16,6 +16,7 @@
       <div class="tabs">
         <button class="tab-button active" data-tab="unirse">Unirse</button>
         <button class="tab-button" data-tab="crear">Crear Sala</button>
+        <button class="tab-button" data-tab="solo">Jugar Solo</button>
       </div>
 
       <!-- Tab: Unirse (Join) -->
@@ -82,9 +83,32 @@
       </div>
 
 
+      <!-- Tab: Jugar Solo (Singleplayer) -->
+      <div class="tab-content" id="tab-solo">
+        <h2>Invocar al Oráculo</h2>
+        <form id="soloGameForm">
+          <div class="form-group">
+            <label for="soloPlayerName">Nombre de Adepto:</label>
+            <input
+              type="text"
+              id="soloPlayerName"
+              placeholder="Ingresa tu nombre..."
+              required
+            />
+          </div>
+
+          <button type="submit" class="btn-lamb">Desafiar al Oráculo</button>
+
+          <div class="loading" id="soloGameLoading">
+            <div class="spinner"></div>
+            <p>Invocando al oráculo...</p>
+          </div>
+        </form>
+      </div>
+
     </div>
 
     <script src="/js/env.js"></script>
-    <script src="/js/index.js"></script>
+    <script type="module" src="/js/index.js"></script>
   </body>
 </html>

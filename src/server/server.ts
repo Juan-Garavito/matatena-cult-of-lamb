@@ -1,16 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import http from "http";
-import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import {
-  createGame,
-  createPlayer,
-  doPlay,
-  getGameById,
-  resetGame,
-} from "./game.js";
+import { doPlaySocket, sendMessage, initIO, sendGameState } from "./socket.js";
+import { createGame, createPlayer, getGameById, resetGame } from "./game.js";
 import type {
   Player,
   GameWrapper,
@@ -23,12 +17,15 @@ import {
   MessageRequestSchema,
   PlayRequestSchema,
 } from "./types/game.schema.js";
+import { runAgent } from "./agent/agent.js";
+import { getBotByGame } from "./agent/data.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+const io = initIO(server);
 app.use(express.json());
 app.use(express.static(__dirname + "/../public"));
 
@@ -48,12 +45,6 @@ server.listen(PORT, () => {
   console.log(`Servidor corriendo en ${API_URL}`);
 });
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-  },
-});
-
 app.post("/create-game", async (req, res) => {
   const { success, data } = await CreateGameRequestSchema.safeParseAsync(
     req.body as TypeGame,
@@ -66,8 +57,12 @@ app.post("/create-game", async (req, res) => {
   const result = createGame(data.type);
 
   if (data.type === "singleplayer") {
-    const newPlayer: Player = createPlayer("BOT", "bot");
-    result.data?.game.players.push(newPlayer);
+    runAgent({
+      request: "create_player",
+      player: undefined,
+      message: "",
+      gameState: result.data,
+    });
   }
 
   if (result.ok) {
@@ -111,20 +106,9 @@ app.post("/join-game", async (req, res) => {
   });
 });
 
-io.use((socket, next) => {
-  const { idGame } = socket.handshake.auth;
-  const gameWrapper = getGameById(idGame);
-
-  if (!gameWrapper) {
-    return next(new Error("El juego no existe"));
-  }
-  next();
-});
-
 io.on("connection", (socket) => {
   const { idGame } = socket.handshake.auth;
-  const game = getGameById(idGame)?.game;
-  io.emit("game_state/" + idGame, game);
+  sendGameState(idGame);
 
   socket.on("play/" + idGame, async (data) => {
     const { success, data: playRequest } =
@@ -136,18 +120,31 @@ io.on("connection", (socket) => {
 
     const { column, id_game, id_player } = playRequest;
 
-    const result = doPlay(column, id_player, id_game);
-    if (result.ok) {
-      io.emit("game_state/" + idGame, result.gameState);
+    const { error } = doPlaySocket(column, id_player, id_game);
+
+    if (error) {
+      io.emit(`play_error/${id_game}/${id_player}`, error);
       return;
     }
 
-    io.emit("play_error/" + idGame + "/" + id_player, { error: result.error });
+    const updatedGame = getGameById(id_game);
+    if (
+      updatedGame?.game.type === "singleplayer" &&
+      updatedGame.game.state !== "finish"
+    ) {
+      const botPlayer = getBotByGame(updatedGame.game);
+      runAgent({
+        request: "play_game",
+        player: botPlayer ?? undefined,
+        message: "Te toca jugar",
+        gameState: updatedGame,
+      });
+    }
   });
 
   socket.on("reset_game/" + idGame, () => {
     resetGame(idGame);
-    io.emit("game_state/" + idGame, getGameById(idGame)?.game);
+    sendGameState(idGame);
   });
 
   socket.on("message/" + idGame, async (data) => {
@@ -159,7 +156,19 @@ io.on("connection", (socket) => {
     }
 
     const { id_game, message, id_player } = messageRequest;
-    io.emit("message/" + id_game, { message: message, id_player });
+    sendMessage(id_game, id_player, message);
+
+    const game = getGameById(idGame);
+    if (game?.game.type == "singleplayer") {
+      const botPlayer = getBotByGame(game.game);
+
+      runAgent({
+        request: "send_message",
+        player: botPlayer ?? undefined,
+        message: message,
+        gameState: game,
+      });
+    }
   });
 
   socket.on("disconnect", () => {

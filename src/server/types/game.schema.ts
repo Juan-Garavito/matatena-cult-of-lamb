@@ -57,3 +57,5 @@ export const BotsSchema = z.object({
   personality: z.string(),
   smart: z.number().min(1).max(10),
 });
+
+export const PlayerSchema = GameSchema.shape.game.shape.players.element;

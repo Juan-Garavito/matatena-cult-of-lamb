@@ -70,3 +70,17 @@ El objetivo es obtener una puntuación mayor que tu oponente al final de la part
 2. Automáticamente será dirigido a la pantalla de juego en estado de espera, y se generará un **ID de Sala / Ritual**.
 3. El segundo jugador (en otra computadora conectada, o en otra pestaña del navegador), utiliza la opción **"Unirse al Ritual"**. Deberá colocar un Nombre distinto e introducir el **ID** que el primer jugador le comparta.
 4. ¡El juego comienza!
+
+## EFECTOS DE SONIDO 
+1. **Mensaje**
+AUTOR: https://pixabay.com/es/users/universfield-28281460/
+LINK: https://pixabay.com/es/sound-effects/pel%c3%adculas-y-efectos-especiales-message-124468/
+2. **Musica de fondo**
+AUTOR: https://pixabay.com/es/users/harumachimusic-13470593/
+LINK: https://pixabay.com/es/music/cl%c3%a1sico-moderno-derelict-house-mysterious-celesta-477176/
+3. **Rolling Dice**
+AUTOR: https://pixabay.com/es/users/freesound_community-46691455/
+LINK: https://pixabay.com/es/sound-effects/pel%c3%adculas-y-efectos-especiales-rolling-dice-2-102706/
+4. **Madera**
+AUTOR: https://pixabay.com/es/users/freesound_community-46691455/
+LINK: https://pixabay.com/es/sound-effects/pel%c3%adculas-y-efectos-especiales-golpe-en-madera-100013/

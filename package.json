@@ -12,6 +12,10 @@
     "start": "node dist/server/server.js"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.40",
+    "@langchain/google": "^0.1.10",
+    "@langchain/langgraph": "^1.2.9",
+    "@langchain/ollama": "^1.2.6",
     "dotenv": "^17.4.2",
     "express": "5.2.1",
     "socket.io": "4.8.3",

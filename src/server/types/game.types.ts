@@ -27,4 +27,4 @@ export type TypePlayer = z.infer<
   typeof GameSchema
 >["game"]["players"][0]["type"];
 
-export type BotSchema = z.infer<typeof BotsSchema>;
+export type Bots = z.infer<typeof BotsSchema>;

@@ -1,4 +1,7 @@
 
+import { SoundManager } from './sounds.js';
+SoundManager.init();
+
 const currentGameId = localStorage.getItem("currentGameId");
 const currentPlayer = localStorage.getItem("player");
 if (currentGameId && currentPlayer) {
@@ -82,6 +85,31 @@ document
       loading.classList.remove("show");
       message.classList.add("show", "error");
       message.textContent = `Error: ${error.message}`;
+    }
+  });
+
+
+document
+  .getElementById("soloGameForm")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const loading = document.getElementById("soloGameLoading");
+    const playerName = document.getElementById("soloPlayerName").value;
+    loading.classList.add("show");
+    try {
+      const baseUrl = window.ENV ? window.ENV.API_URL : "";
+      const res = await fetch(`${baseUrl}/create-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "singleplayer" }),
+      });
+      if (!res.ok) throw new Error("Error al crear la partida");
+      const { gameId } = await res.json();
+      await unirAlJuego(gameId, playerName);
+      window.location.href = `/game.html?id=${gameId}`;
+    } catch (err) {
+      console.error(err);
+      loading.classList.remove("show");
     }
   });
 

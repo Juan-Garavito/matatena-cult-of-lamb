@@ -2,7 +2,6 @@ import type {
   GameWrapper,
   Table,
   Player,
-  Game,
   TypeGame,
   TypePlayer,
 } from "./types/game.types.js";
