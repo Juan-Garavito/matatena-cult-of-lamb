@@ -1,17 +1,25 @@
 import { Server } from "socket.io";
 import type { Server as HttpServer } from "node:http";
 import { getGameById, doPlay } from "./game.js";
+import { DbUnavailableError } from "./db/errors.js";
 
 let io: Server;
 
 export const initIO = (httpServer: HttpServer): Server => {
   io = new Server(httpServer);
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const { idGame } = socket.handshake.auth;
-    const gameWrapper = getGameById(idGame);
-    if (!gameWrapper) return next(new Error("El juego no existe"));
-    next();
+    try {
+      const gameWrapper = await getGameById(idGame);
+      if (!gameWrapper) return next(new Error("El juego no existe"));
+      next();
+    } catch (error) {
+      if (error instanceof DbUnavailableError) {
+        return next(new Error("Servicio no disponible"));
+      }
+      next(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 
   return io;
@@ -30,19 +38,19 @@ export const sendMessage = (
   getIO().emit("message/" + id_game, { message, id_player });
 };
 
-export const doPlaySocket = (
+export const doPlaySocket = async (
   column: number,
   id_player: string,
   id_game: string,
 ) => {
-  const result = doPlay(column, id_player, id_game);
+  const result = await doPlay(column, id_player, id_game);
   if (!result.ok) return { error: result.error, gameState: null };
   getIO().emit("game_state/" + id_game, result.gameState);
   return { gameState: result.gameState, error: null };
 };
 
-export const sendGameState = (id_game: string) => {
-  const gameWrapper = getGameById(id_game);
+export const sendGameState = async (id_game: string) => {
+  const gameWrapper = await getGameById(id_game);
   if (!gameWrapper) return;
   getIO().emit("game_state/" + id_game, gameWrapper.game);
 };

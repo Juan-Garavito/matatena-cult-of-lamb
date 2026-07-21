@@ -4,10 +4,16 @@ import http from "http";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { doPlaySocket, sendMessage, initIO, sendGameState } from "./socket.js";
-import { createGame, createPlayer, getGameById, resetGame } from "./game.js";
+import {
+  createGame,
+  createPlayer,
+  getGameById,
+  resetGame,
+  addPlayerToGame,
+} from "./game.js";
+import { DbUnavailableError } from "./db/errors.js";
 import type {
   Player,
-  GameWrapper,
   JoinGameRequest,
   TypeGame,
 } from "./types/game.types.js";
@@ -54,21 +60,30 @@ app.post("/create-game", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos requeridos" });
   }
 
-  const result = createGame(data.type);
+  try {
+    const result = await createGame(data.type);
 
-  if (data.type === "singleplayer") {
-    runAgent({
-      request: "create_player",
-      player: undefined,
-      message: "",
-      gameState: result.data,
-    });
-  }
+    if (result.ok && data.type === "singleplayer") {
+      runAgent({
+        request: "create_player",
+        player: undefined,
+        message: "",
+        gameState: result.data,
+      }).catch((e) => console.error("runAgent create_player failed:", e));
+    }
 
-  if (result.ok) {
-    res.json({ gameId: result.data?.id_game });
-  } else {
-    res.status(400).json({ error: result.error });
+    if (result.ok) {
+      res.json({ gameId: result.data?.id_game });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (error) {
+    if (error instanceof DbUnavailableError) {
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
+    }
+    throw error;
   }
 });
 
@@ -81,34 +96,41 @@ app.post("/join-game", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos requeridos" });
   }
 
-  const gameWrapper: GameWrapper | undefined = getGameById(data.id_game);
-
-  if (!gameWrapper) {
-    return res.status(404).json({ error: "El juego no existe" });
-  }
-
-  const game = gameWrapper.game;
-
-  if (game.players.length >= 2) {
-    return res.status(400).json({ error: "El juego ya está lleno" });
-  }
   const newPlayer: Player = createPlayer(data.playerName, "human");
 
-  game.players.push(newPlayer);
+  try {
+    const result = await addPlayerToGame(data.id_game, newPlayer);
 
-  if (game.players.length === 2) {
-    game.state = "playing";
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      success: true,
+      player: { id: newPlayer.id, name: newPlayer.name },
+    });
+  } catch (error) {
+    if (error instanceof DbUnavailableError) {
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
+    }
+    throw error;
   }
-
-  res.json({
-    success: true,
-    player: { id: newPlayer.id, name: newPlayer.name },
-  });
 });
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   const { idGame } = socket.handshake.auth;
-  sendGameState(idGame);
+
+  try {
+    await sendGameState(idGame);
+  } catch (error) {
+    if (error instanceof DbUnavailableError) {
+      io.emit("server_error/" + idGame, "Servicio no disponible");
+    } else {
+      throw error;
+    }
+  }
 
   socket.on("play/" + idGame, async (data) => {
     const { success, data: playRequest } =
@@ -120,31 +142,48 @@ io.on("connection", (socket) => {
 
     const { column, id_game, id_player } = playRequest;
 
-    const { error } = doPlaySocket(column, id_player, id_game);
+    try {
+      const { error } = await doPlaySocket(column, id_player, id_game);
 
-    if (error) {
-      io.emit(`play_error/${id_game}/${id_player}`, error);
-      return;
-    }
+      if (error) {
+        io.emit(`play_error/${id_game}/${id_player}`, error);
+        return;
+      }
 
-    const updatedGame = getGameById(id_game);
-    if (
-      updatedGame?.game.type === "singleplayer" &&
-      updatedGame.game.state !== "finish"
-    ) {
-      const botPlayer = getBotByGame(updatedGame.game);
-      runAgent({
-        request: "play_game",
-        player: botPlayer ?? undefined,
-        message: "Te toca jugar",
-        gameState: updatedGame,
-      });
+      const updatedGame = await getGameById(id_game);
+      if (
+        updatedGame?.game.type === "singleplayer" &&
+        updatedGame.game.state !== "finish"
+      ) {
+        const botPlayer = getBotByGame(updatedGame.game);
+        runAgent({
+          request: "play_game",
+          player: botPlayer ?? undefined,
+          message: "Te toca jugar",
+          gameState: updatedGame,
+        });
+      }
+    } catch (error) {
+      if (error instanceof DbUnavailableError) {
+        io.emit("server_error/" + id_game, "Servicio no disponible");
+        return;
+      }
+      throw error;
     }
   });
 
-  socket.on("reset_game/" + idGame, () => {
-    resetGame(idGame);
-    sendGameState(idGame);
+  socket.on("reset_game/" + idGame, async () => {
+    try {
+      const result = await resetGame(idGame);
+      if (!result.ok) return;
+      await sendGameState(idGame);
+    } catch (error) {
+      if (error instanceof DbUnavailableError) {
+        io.emit("server_error/" + idGame, "Servicio no disponible");
+        return;
+      }
+      throw error;
+    }
   });
 
   socket.on("message/" + idGame, async (data) => {
@@ -158,16 +197,24 @@ io.on("connection", (socket) => {
     const { id_game, message, id_player } = messageRequest;
     sendMessage(id_game, id_player, message);
 
-    const game = getGameById(idGame);
-    if (game?.game.type == "singleplayer") {
-      const botPlayer = getBotByGame(game.game);
+    try {
+      const game = await getGameById(idGame);
+      if (game?.game.type == "singleplayer") {
+        const botPlayer = getBotByGame(game.game);
 
-      runAgent({
-        request: "send_message",
-        player: botPlayer ?? undefined,
-        message: message,
-        gameState: game,
-      });
+        runAgent({
+          request: "send_message",
+          player: botPlayer ?? undefined,
+          message: message,
+          gameState: game,
+        });
+      }
+    } catch (error) {
+      if (error instanceof DbUnavailableError) {
+        io.emit("server_error/" + idGame, "Servicio no disponible");
+        return;
+      }
+      throw error;
     }
   });
 

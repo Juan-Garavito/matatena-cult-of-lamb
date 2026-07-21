@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { createPlayer, getGameById } from "../game.js";
+import { createPlayer, addPlayerToGame } from "../game.js";
 import { createBot } from "./data.js";
 import { PlayerSchema } from "../types/game.schema.js";
 import { readFile } from "fs/promises";
@@ -28,14 +28,10 @@ export const createPlayerAgent = tool(
 );
 
 export const JoinToGameAgent = tool(
-  ({ id_game, player }) => {
-    const wrapper = getGameById(id_game);
-    if (!wrapper) return "No existe la partida con el id proporcionado";
-    wrapper.game.players.push(player);
-    if (wrapper.game.players.length === 2) {
-      wrapper.game.state = "playing";
-    }
-    sendGameState(id_game);
+  async ({ id_game, player }) => {
+    const result = await addPlayerToGame(id_game, player);
+    if (!result.ok) return result.error;
+    await sendGameState(id_game);
     return "Jugador unido a la partida correctamente";
   },
   {
@@ -49,8 +45,8 @@ export const JoinToGameAgent = tool(
 );
 
 export const playGameAgent = tool(
-  ({ column, id_player, id_game }) => {
-    const result = doPlaySocket(column, id_player, id_game);
+  async ({ column, id_player, id_game }) => {
+    const result = await doPlaySocket(column, id_player, id_game);
     if (result.error) {
       return { error: result.error, gameState: null };
     }
