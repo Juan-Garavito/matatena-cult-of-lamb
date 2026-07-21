@@ -74,19 +74,8 @@ const checkFinish = (table: Table) => {
   return !table.flat().includes(-1) ? "finish" : "playing";
 };
 
-const checkWinner = (id_game: string): Player | null => {
-  const gameWrapper = games.find((g) => g.id_game === id_game);
-
-  if (!gameWrapper) {
-    return null;
-  }
-
-  const player1 = gameWrapper.game.players[0];
-  const player2 = gameWrapper.game.players[1];
-
-  if (!player1 || !player2) {
-    return null;
-  }
+const checkWinner = (players: [Player, Player]): Player | null => {
+  const [player1, player2] = players;
 
   return player1.totalPoints > player2.totalPoints ? player1 : player2;
 };
@@ -147,15 +136,8 @@ const validatePlay = (column: number, id_game: string, id_player: string) => {
   };
 };
 
-const updatePoints = (column: number, id_game: string): void => {
-  const gameWrapper = games.find((g) => g.id_game === id_game);
-
-  if (!gameWrapper) {
-    return;
-  }
-
-  const game = gameWrapper.game;
-  game.players.forEach((player) => {
+const updatePoints = (column: number, players: Player[]): void => {
+  players.forEach((player) => {
     const col = player.table[column];
     if (!col) return;
 
@@ -167,7 +149,7 @@ const updatePoints = (column: number, id_game: string): void => {
 
     if (validValues.length === 0) {
       player.points[colKey] = 0;
-      updateTotalPoints(player.id, id_game);
+      updateTotalPoints(player);
       return;
     }
 
@@ -181,7 +163,7 @@ const updatePoints = (column: number, id_game: string): void => {
     });
 
     player.points[colKey] = columnPoints;
-    updateTotalPoints(player.id, id_game);
+    updateTotalPoints(player);
   });
 };
 
@@ -192,38 +174,17 @@ const updateDice = (): number => {
 const erasePointsOpponent = (
   column: number,
   value: number,
-  id_player: string,
-  id_game: string,
+  opponent: Player,
 ): void => {
-  const gameWrapper = games.find((g) => g.id_game === id_game);
-
-  if (!gameWrapper) {
-    return;
-  }
-
-  const game = gameWrapper.game;
-  const player = game.players.find((p) => p.id === id_player);
-  if (!player) return;
-
-  const col = player.table[column];
+  const col = opponent.table[column];
   if (!col) return;
 
   const newValues = col.map((cell) => (cell === value ? -1 : cell));
 
-  player.table[column] = newValues;
-  updatePoints(column, id_game);
+  opponent.table[column] = newValues;
 };
 
-const updateTotalPoints = (id_player: string, id_game: string): void => {
-  const gameWrapper = games.find((g) => g.id_game === id_game);
-
-  if (!gameWrapper) {
-    return;
-  }
-
-  const game = gameWrapper.game;
-  const player = game.players.find((p) => p.id === id_player);
-  if (!player) return;
+const updateTotalPoints = (player: Player): void => {
   const total = Object.values(player.points).reduce((sum, col) => sum + col, 0);
   player.totalPoints = total;
 };
@@ -240,13 +201,13 @@ const doPlay = (column: number, id_player: string, id_game: string) => {
   col[index] = value;
 
   console.log(`Jugada: id_game=${id_game}, column=${column}, dice=${value}`);
-  erasePointsOpponent(column, value, opponent.id, id_game);
-  updatePoints(column, id_game);
+  erasePointsOpponent(column, value, opponent);
+  updatePoints(column, game.players);
 
   game.state = checkFinish(player.table);
 
   if (game.state === "finish") {
-    const winner = checkWinner(id_game);
+    const winner = checkWinner([player, opponent]);
     game.winner = winner ? winner.id : null;
     return { ok: true, gameState: game };
   }
