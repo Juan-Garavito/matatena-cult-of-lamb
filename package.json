@@ -16,8 +16,10 @@
     "@langchain/google": "^0.1.10",
     "@langchain/langgraph": "^1.2.9",
     "@langchain/ollama": "^1.2.6",
+    "@supabase/supabase-js": "2.110.7",
     "dotenv": "^17.4.2",
     "express": "5.2.1",
+    "pg": "8.22.0",
     "socket.io": "4.8.3",
     "socket.io-client": "4.8.3",
     "zod": "4.3.6"
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/node": "25.6.0",
+    "@types/pg": "8.20.0",
     "tsx": "4.21.0",
     "typescript": "6.0.2"
   }
