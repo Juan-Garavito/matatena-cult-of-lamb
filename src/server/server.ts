@@ -23,7 +23,7 @@ import {
   MessageRequestSchema,
   PlayRequestSchema,
 } from "./types/game.schema.js";
-import { runAgent } from "./agent/agent.js";
+import { runAgentWithFallback } from "./agent/recovery.js";
 import { getBotByGame } from "./agent/data.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,12 +64,12 @@ app.post("/create-game", async (req, res) => {
     const result = await createGame(data.type);
 
     if (result.ok && data.type === "singleplayer") {
-      runAgent({
+      void runAgentWithFallback({
         request: "create_player",
         player: undefined,
         message: "",
         gameState: result.data,
-      }).catch((e) => console.error("runAgent create_player failed:", e));
+      });
     }
 
     if (result.ok) {
@@ -156,7 +156,7 @@ io.on("connection", async (socket) => {
         updatedGame.game.state !== "finish"
       ) {
         const botPlayer = getBotByGame(updatedGame.game);
-        runAgent({
+        void runAgentWithFallback({
           request: "play_game",
           player: botPlayer ?? undefined,
           message: "Te toca jugar",
@@ -202,7 +202,7 @@ io.on("connection", async (socket) => {
       if (game?.game.type == "singleplayer") {
         const botPlayer = getBotByGame(game.game);
 
-        runAgent({
+        void runAgentWithFallback({
           request: "send_message",
           player: botPlayer ?? undefined,
           message: message,

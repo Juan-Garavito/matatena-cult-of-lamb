@@ -38,6 +38,14 @@ export const sendMessage = (
   getIO().emit("message/" + id_game, { message, id_player });
 };
 
+/**
+ * Tells everyone in the game that the AI opponent could not answer, and what
+ * was done about it. Emitted by `agent/recovery.ts` only.
+ */
+export const notifyAgentUnavailable = (id_game: string, message: string) => {
+  getIO().emit("agent_unavailable/" + id_game, { message });
+};
+
 export const doPlaySocket = async (
   column: number,
   id_player: string,

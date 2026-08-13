@@ -189,6 +189,16 @@ socket.on("play_error/" + gameId + "/" + currentPlayer.id, (errorMsg) => {
   displayMessage(errorMsg || "Hubo un error en el ritual.", "error");
 });
 
+socket.on("agent_unavailable/" + gameId, ({ message }) => {
+  SoundManager.play('message');
+  displayMessage(message || "El oponente no está disponible.", "error");
+});
+
+socket.on("server_error/" + gameId, (errorMsg) => {
+  SoundManager.play('message');
+  displayMessage(errorMsg || "El servicio no está disponible.", "error");
+});
+
 socket.on("message/" + gameId, ({ message, id_player }) => {
   if (!gameState) return;
   const playerIndex = gameState.players.findIndex((p) => p.id === id_player);
