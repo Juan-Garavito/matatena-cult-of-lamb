@@ -42,5 +42,7 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  // `api/` is built by Vercel's own bundler and sits outside `rootDir`.
+  "include": ["src"],
 }

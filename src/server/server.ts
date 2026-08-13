@@ -32,9 +32,9 @@ const __dirname = dirname(__filename);
 
 /**
  * Locates the browser assets. `__dirname` alone is not enough: it points at
- * `src/server` under tsx but at `dist/server` after `tsc`, which does not
- * copy html/css/js, so `dist/public` never exists. Falling back to the
- * repo-relative path keeps `npm run dev` and `npm start` both working.
+ * `src/server` under tsx, at `dist/server` after `tsc` (which does not copy
+ * html/css/js), and at the bundle location on Vercel. Falling back to the
+ * repo-relative path keeps all three working.
  */
 const resolveStaticDir = (): string => {
   const candidates = [
@@ -47,9 +47,16 @@ const resolveStaticDir = (): string => {
 
 const staticDir = resolveStaticDir();
 
+/**
+ * Socket.IO mount path. On Vercel the function is reachable at
+ * `/api/server`, so the handshake must live under it; locally the default
+ * `/socket.io` applies. The browser reads it from `/js/env.js`.
+ */
+const SOCKET_PATH = process.env.SOCKET_PATH || "/socket.io";
+
 const app = express();
 const server = http.createServer(app);
-const io = initIO(server);
+const io = initIO(server, SOCKET_PATH);
 app.use(express.json());
 app.use(express.static(staticDir));
 
@@ -62,12 +69,18 @@ const API_URL = process.env.API_URL || "";
 
 app.get("/js/env.js", (req, res) => {
   res.type("application/javascript");
-  res.send(`window.ENV = { API_URL: '${API_URL}' };`);
+  res.send(
+    `window.ENV = { API_URL: '${API_URL}', SOCKET_PATH: '${SOCKET_PATH}' };`,
+  );
 });
 
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en ${API_URL}`);
-});
+// On Vercel the platform owns the listener: it imports the exported server
+// instead of us binding a port.
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`Servidor corriendo en ${API_URL || `http://localhost:${PORT}`}`);
+  });
+}
 
 app.post("/create-game", async (req, res) => {
   const { success, data } = await CreateGameRequestSchema.safeParseAsync(
@@ -240,3 +253,6 @@ io.on("connection", async (socket) => {
     console.log("Cliente desconectado:", socket.id);
   });
 });
+
+export { app, server };
+export default server;
