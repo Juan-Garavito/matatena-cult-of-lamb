@@ -1,8 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import http from "http";
+import { existsSync } from "fs";
 import { fileURLToPath } from "url";
-import { dirname } from "path";
+import path, { dirname } from "path";
 import { doPlaySocket, sendMessage, initIO, sendGameState } from "./socket.js";
 import {
   createGame,
@@ -29,14 +30,31 @@ import { getBotByGame } from "./agent/data.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Locates the browser assets. `__dirname` alone is not enough: it points at
+ * `src/server` under tsx but at `dist/server` after `tsc`, which does not
+ * copy html/css/js, so `dist/public` never exists. Falling back to the
+ * repo-relative path keeps `npm run dev` and `npm start` both working.
+ */
+const resolveStaticDir = (): string => {
+  const candidates = [
+    path.join(__dirname, "../public"),
+    path.join(process.cwd(), "src/public"),
+  ];
+
+  return candidates.find((dir) => existsSync(dir)) ?? candidates[0]!;
+};
+
+const staticDir = resolveStaticDir();
+
 const app = express();
 const server = http.createServer(app);
 const io = initIO(server);
 app.use(express.json());
-app.use(express.static(__dirname + "/../public"));
+app.use(express.static(staticDir));
 
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/../public/index.html");
+  res.sendFile(path.join(staticDir, "index.html"));
 });
 
 const PORT = process.env.PORT || 3000;
