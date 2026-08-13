@@ -1,12 +1,9 @@
-# Cult of the Lamb — Visual Style Guide
-
 ---
-
 name: cult-of-the-lamb-style
 description: A strict visual design system for a Cult of the Lamb style game project. Parchment-dominant aesthetic — aged cream backgrounds, near-black ink, blood-red as sparingly used accent only.
-
 ---
 
+# Cult of the Lamb — Visual Style Guide
 Inspired by Massive Monster's _Cult of the Lamb_ (2022).
 **Apply these rules to every UI component, screen, menu, button, form, card, modal, or any visual element you generate or modify.** Never deviate without explicit approval.
 
