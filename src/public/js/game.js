@@ -30,9 +30,9 @@ SoundManager.init();
 try {
   gameId = localStorage.getItem("currentGameId");
   currentPlayer = JSON.parse(localStorage.getItem("player") ?? "");
-  if (!gameId || !currentPlayer || !currentPlayer.id) window.location.href = "/";
+  if (!gameId || !currentPlayer || !currentPlayer.id) leaveGame();
 } catch (e) {
-  window.location.href = "/";
+  leaveGame();
 }
 
 const baseUrl = window.ENV ? window.ENV.API_URL : "";
@@ -149,6 +149,19 @@ function resetGame() {
 }
 window.resetGame = resetGame;
 
+function clearStoredGame() {
+  localStorage.removeItem("currentGameId");
+  localStorage.removeItem("player");
+}
+
+// index.js redirects straight back into the game while these keys exist,
+// so leaving has to clear them before navigating.
+function leaveGame() {
+  clearStoredGame();
+  window.location.href = "/";
+}
+window.leaveGame = leaveGame;
+
 function sendMessage() {
   const input = document.getElementById("messageInput");
   if (!input) return;
@@ -216,9 +229,7 @@ socket.on("connect", () => {
 });
 
 socket.on("connect_error", () => {
-  window.location.href = "/";
-  localStorage.removeItem("currentGameId");
-  localStorage.removeItem("player");
+  leaveGame();
 });
 
 // --- UI bindings ---
