@@ -5,8 +5,8 @@ import { DbUnavailableError } from "./db/errors.js";
 
 let io: Server;
 
-export const initIO = (httpServer: HttpServer): Server => {
-  io = new Server(httpServer);
+export const initIO = (httpServer: HttpServer, path = "/socket.io"): Server => {
+  io = new Server(httpServer, { path });
 
   io.use(async (socket, next) => {
     const { idGame } = socket.handshake.auth;

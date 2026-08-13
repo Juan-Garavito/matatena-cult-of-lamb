@@ -36,7 +36,14 @@ try {
 }
 
 const baseUrl = window.ENV ? window.ENV.API_URL : "";
-const socket = io(baseUrl, { auth: { idGame: gameId } });
+// Vercel Functions only accept the native WebSocket transport, so the
+// long-polling fallback is disabled and the handshake path is injected by
+// the server (see /js/env.js).
+const socket = io(baseUrl, {
+  auth: { idGame: gameId },
+  path: (window.ENV && window.ENV.SOCKET_PATH) || "/socket.io",
+  transports: ["websocket"],
+});
 
 function getNewlyPlacedCells(oldTable, newTable) {
   const newCells = [];
