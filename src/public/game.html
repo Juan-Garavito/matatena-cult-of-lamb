@@ -1,11 +1,18 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Matatena - Ritual</title>
     <link rel="stylesheet" href="/css/shared.css" />
     <link rel="stylesheet" href="/css/game.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.110.7"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="ritualLoading" class="ritual-loading">
@@ -74,8 +81,13 @@
 
       <!-- Chat -->
       <div class="message-input-area">
-        <input type="text" id="messageInput" class="message-input"
-          placeholder="Susurra al ritual..." maxlength="80" />
+        <input
+          type="text"
+          id="messageInput"
+          class="message-input"
+          placeholder="Susurra al ritual..."
+          maxlength="80"
+        />
         <button id="messageSendBtn" class="btn-lamb">Enviar</button>
       </div>
 
@@ -83,17 +95,17 @@
       <div class="game-status" id="gameStatus">
         <h2 id="statusTitle">¡Ha terminado el juego!</h2>
         <p id="statusMessage"></p>
-        <button class="back-button btn-lamb" onclick="window.location.href = '/'">
+        <button
+          class="back-button btn-lamb"
+          onclick="window.closeGameAndLeave()"
+        >
           Volver al Inicio
         </button>
       </div>
-
-      
     </div>
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="/js/env.js"></script>
     <script type="module" src="/js/game.js"></script>
   </body>

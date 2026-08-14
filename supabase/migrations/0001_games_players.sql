@@ -1,8 +1,3 @@
--- Matatena game persistence schema.
--- Additive-only migration for the `feature/database` branch — no destructive
--- change to any existing schema. Run manually against a fresh Supabase
--- project before applying later PRs in this change.
-
 create extension if not exists pgcrypto;
 
 create table if not exists games (
@@ -26,3 +21,6 @@ create table if not exists players (
   total_points int not null default 0,
   unique (game_id, seat)
 );
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.games TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.players TO service_role;

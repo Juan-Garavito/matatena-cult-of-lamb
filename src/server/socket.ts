@@ -1,49 +1,51 @@
-import { Server } from "socket.io";
-import type { Server as HttpServer } from "node:http";
 import { getGameById, doPlay } from "./game.js";
-import { DbUnavailableError } from "./db/errors.js";
 
-let io: Server;
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-export const initIO = (httpServer: HttpServer, path = "/socket.io"): Server => {
-  io = new Server(httpServer, { path });
+const broadcast = async (
+  id_game: string,
+  event: string,
+  payload: unknown,
+): Promise<void> => {
+  const url = `${SUPABASE_URL}/realtime/v1/api/broadcast/${encodeURIComponent(
+    id_game,
+  )}/events/${encodeURIComponent(event)}`;
 
-  io.use(async (socket, next) => {
-    const { idGame } = socket.handshake.auth;
-    try {
-      const gameWrapper = await getGameById(idGame);
-      if (!gameWrapper) return next(new Error("El juego no existe"));
-      next();
-    } catch (error) {
-      if (error instanceof DbUnavailableError) {
-        return next(new Error("Servicio no disponible"));
-      }
-      next(error instanceof Error ? error : new Error(String(error)));
-    }
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
 
-  return io;
+  if (!response.ok) {
+    console.error(
+      `Broadcast '${event}' falló (${response.status}) para ${id_game}`,
+    );
+  }
 };
 
-export const getIO = (): Server => {
-  if (!io) throw new Error("Socket.IO no ha sido inicializado");
-  return io;
-};
-
-export const sendMessage = (
+export const sendMessage = async (
   id_game: string,
   id_player: string,
   message: string,
 ) => {
-  getIO().emit("message/" + id_game, { message, id_player });
+  await broadcast(id_game, "message", { message, id_player });
 };
 
-/**
- * Tells everyone in the game that the AI opponent could not answer, and what
- * was done about it. Emitted by `agent/recovery.ts` only.
- */
-export const notifyAgentUnavailable = (id_game: string, message: string) => {
-  getIO().emit("agent_unavailable/" + id_game, { message });
+export const notifyAgentUnavailable = async (
+  id_game: string,
+  message: string,
+) => {
+  await broadcast(id_game, "agent_unavailable", { message });
+};
+
+export const notifyGameClosed = async (id_game: string) => {
+  await broadcast(id_game, "game_closed", {});
 };
 
 export const doPlaySocket = async (
@@ -53,12 +55,20 @@ export const doPlaySocket = async (
 ) => {
   const result = await doPlay(column, id_player, id_game);
   if (!result.ok) return { error: result.error, gameState: null };
-  getIO().emit("game_state/" + id_game, result.gameState);
+  await sendGameState(id_game);
   return { gameState: result.gameState, error: null };
 };
 
 export const sendGameState = async (id_game: string) => {
   const gameWrapper = await getGameById(id_game);
   if (!gameWrapper) return;
-  getIO().emit("game_state/" + id_game, gameWrapper.game);
+  await broadcast(id_game, "game_state", gameWrapper.game);
+};
+
+export const sendError = async (
+  id_game: string,
+  id_player: string,
+  error: string,
+) => {
+  await broadcast(id_game, `play_error/${id_player}`, { error });
 };

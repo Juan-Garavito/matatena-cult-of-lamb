@@ -5,7 +5,6 @@ import {
   Annotation,
   MessagesAnnotation,
 } from "@langchain/langgraph";
-// import { ChatOllama } from "@langchain/ollama";
 import { z } from "zod";
 import { BotsSchema, GameSchema } from "../types/game.schema.js";
 import {
@@ -24,26 +23,13 @@ import {
 } from "@langchain/core/messages";
 import { ChatGoogle } from "@langchain/google";
 import { AgentUnavailableError, classifyAgentError } from "./errors.js";
+import { getGameById } from "../game.js";
 
-// const model = new ChatOllama({
-//   model: "hf.co/TheBloke/phi-2-GGUF:Q8_0",
-//   baseUrl: "http://localhost:11434",
-//   keepAlive: "5m",
-//   numCtx: 4650,
-//   think: false,
-// });
-
-/**
- * A stuck turn is worse than a fast failure: cap how long the human waits for
- * the bot before falling back to a local move.
- */
 const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 20_000);
 
 const model = new ChatGoogle({
   model: process.env.GOOGLE_MODEL!,
   apiKey: process.env.GOOGLE_API_KEY!,
-  // Default is 6 retries, which turns an exhausted quota into a very long
-  // wait. Two attempts absorb a transient blip and give up quickly otherwise.
   maxRetries: 2,
 });
 
@@ -58,11 +44,6 @@ const SendMessageAgent = model.bindTools(toolsSendMessage);
 
 type BoundAgent = typeof AgentNewPlayer;
 
-/**
- * Single entry point for every LLM call: bounds the wait with an abort signal
- * and normalizes whatever fails into an `AgentUnavailableError`, so no node
- * leaks a raw SDK error into the graph.
- */
 const invokeModel = async (
   agent: BoundAgent,
   messages: BaseMessage[],
@@ -119,7 +100,12 @@ const createPlayerNode = async (state: AgentState) => {
 
 const playGameNode = async (state: AgentState) => {
   console.log("REALIZANDO JUGADA");
-  console.log(state);
+  const gameId = state.gameState?.id_game ?? "";
+  const liveWrapper = await getGameById(gameId);
+  const game = liveWrapper?.game ?? state.gameState?.game;
+  const botId =
+    state.player?.id ?? game?.players.find((p) => p.type === "bot")?.id;
+
   const response = await invokeModel(
     PlayGameAgent,
     [
@@ -127,7 +113,7 @@ const playGameNode = async (state: AgentState) => {
         "You are a player of matatena, you task is made a play in the game. You will get the dice value,  and the id_game.  You have read the rules to understand the game bette. Depends,  you level in the game You have adopt a position more competitive or less competitive. You always have to decide some column between 0 and 2",
       ),
       new HumanMessage(
-        `Your dice value is  ${state.gameState?.game.dice}. Your level the game is ${state.player?.smart}. The actual state for game is the next ${JSON.stringify(state.gameState)} and the These is your data: ${JSON.stringify(state.player)}. If you dont know the rules for this game then You have to read rules`,
+        `Your dice value is ${game?.dice}. Your player id is "${botId}". The game id is "${gameId}". Your level the game is ${state.player?.smart}. The actual state for game is ${JSON.stringify(game)} and this is your data: ${JSON.stringify(state.player)}. If you dont know the rules for this game then you have to read rules`,
       ),
       ...state.messages,
     ],
@@ -158,7 +144,7 @@ const sendMessageNode = async (state: AgentState) => {
   return { messages: [response] };
 };
 
-const routeTools = (state: AgentState): string => {
+const routeTools = async (state: AgentState): Promise<string> => {
   const aiMessages = state.messages
     .filter((m): m is AIMessage => m instanceof AIMessage)
     .reverse();
@@ -171,8 +157,10 @@ const routeTools = (state: AgentState): string => {
   console.log("ROUTE TOOLS", toolCalled);
 
   if (toolCalled === JoinToGameAgent.name) {
+    const liveWrapper = await getGameById(state.gameState?.id_game ?? "");
+    const game = liveWrapper?.game;
     const isMyTurn =
-      state.gameState?.game.players[state.gameState.game.turn]?.type === "bot";
+      game?.state === "playing" && game.players[game.turn]?.type === "bot";
     return isMyTurn ? "play_game" : "unknown_request";
   }
 
@@ -221,10 +209,6 @@ export type AgentRunResult =
   | { ok: true }
   | { ok: false; error: AgentUnavailableError };
 
-/**
- * Runs the graph and never throws: the agent is an optional luxury, so every
- * failure comes back as `{ ok: false }` for `agent/recovery.ts` to handle.
- */
 export const runAgent = async ({
   request,
   gameState,

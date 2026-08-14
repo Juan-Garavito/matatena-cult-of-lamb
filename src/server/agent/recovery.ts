@@ -15,11 +15,6 @@ import {
 } from "../socket.js";
 import { DbUnavailableError } from "../db/errors.js";
 
-/**
- * Fills the empty seat with a bot the AI never got to invent, so a
- * singleplayer game is still playable when the model is down.
- * Returns false when the seat is already taken or the DB refuses the insert.
- */
 const createFallbackBot = async (id_game: string): Promise<boolean> => {
   const wrapper = await getGameById(id_game);
   if (!wrapper) return false;
@@ -34,14 +29,15 @@ const createFallbackBot = async (id_game: string): Promise<boolean> => {
   if (!result.ok) return false;
 
   await sendGameState(id_game);
+
+  // If the bot joined into the opening turn, play it here — otherwise the game
+  // deadlocks waiting for a move the fallback never makes. playFallbackMove is
+  // a no-op when it isn't the bot's turn (e.g. the bot joined first).
+  await playFallbackMove(id_game, player.id);
+
   return true;
 };
 
-/**
- * Plays the bot's turn with the local heuristic instead of the LLM.
- * Re-reads the game first: the agent may have failed *after* placing its
- * dice, and playing twice would corrupt the match.
- */
 const playFallbackMove = async (
   id_game: string,
   id_bot: string,
@@ -62,7 +58,6 @@ const playFallbackMove = async (
   return !result.error;
 };
 
-/** The bot that owns the empty seat, when the caller did not pass one. */
 const findBotId = async (id_game: string): Promise<string | undefined> => {
   const wrapper = await getGameById(id_game);
   return wrapper?.game.players.findLast((p) => p.type === "bot")?.id;
@@ -97,11 +92,6 @@ const recover = async (
   }
 };
 
-/**
- * Runs the agent and, when it cannot answer (quota exhausted, bad key,
- * timeout, network), keeps the game moving and tells the player what
- * happened. Never throws and never leaves an unhandled rejection behind.
- */
 export const runAgentWithFallback = async (
   input: AgentRunInput,
 ): Promise<void> => {

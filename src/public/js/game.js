@@ -1,5 +1,5 @@
-import { SoundManager } from './sounds.js';
-import { animateDice, createCellDiceFace } from './dice.js';
+import { SoundManager } from "./sounds.js";
+import { animateDice, createCellDiceFace } from "./dice.js";
 import {
   displayMessage,
   updateTurnStatus,
@@ -7,12 +7,16 @@ import {
   showGameResult,
   showWaitingForPlayer,
   showSpeechBubble,
-} from './ui.js';
+} from "./ui.js";
+import { supabase } from "./supabase.js";
 
 let currentPlayer = null;
 let gameId = null;
 let gameState = null;
 let previousTables = [null, null];
+let leaving = false;
+
+const baseUrl = window.ENV ? window.ENV.API_URL : "";
 
 SoundManager.init();
 
@@ -27,23 +31,15 @@ SoundManager.init();
   }
 })();
 
-try {
-  gameId = localStorage.getItem("currentGameId");
-  currentPlayer = JSON.parse(localStorage.getItem("player") ?? "");
-  if (!gameId || !currentPlayer || !currentPlayer.id) leaveGame();
-} catch (e) {
-  leaveGame();
-}
-
-const baseUrl = window.ENV ? window.ENV.API_URL : "";
-// Vercel Functions only accept the native WebSocket transport, so the
-// long-polling fallback is disabled and the handshake path is injected by
-// the server (see /js/env.js).
-const socket = io(baseUrl, {
-  auth: { idGame: gameId },
-  path: (window.ENV && window.ENV.SOCKET_PATH) || "/socket.io",
-  transports: ["websocket"],
-});
+(function loadGame() {
+  try {
+    gameId = localStorage.getItem("currentGameId");
+    currentPlayer = JSON.parse(localStorage.getItem("player") ?? "");
+    if (!gameId || !currentPlayer || !currentPlayer.id) leaveGame();
+  } catch (e) {
+    leaveGame();
+  }
+})();
 
 function getNewlyPlacedCells(oldTable, newTable) {
   const newCells = [];
@@ -58,14 +54,6 @@ function getNewlyPlacedCells(oldTable, newTable) {
   return newCells;
 }
 
-function playColumn(columnIndex) {
-  socket.emit("play/" + gameId, {
-    column: columnIndex,
-    id_game: gameId,
-    id_player: currentPlayer.id,
-  });
-}
-
 function renderGame(game) {
   updateTurnStatus(game);
 
@@ -74,7 +62,10 @@ function renderGame(game) {
 
   for (let pIdx = 0; pIdx < game.players.length; pIdx++) {
     if (previousTables[pIdx] && game.players[pIdx]) {
-      newCellsByPlayer[pIdx] = getNewlyPlacedCells(previousTables[pIdx], game.players[pIdx].table);
+      newCellsByPlayer[pIdx] = getNewlyPlacedCells(
+        previousTables[pIdx],
+        game.players[pIdx].table,
+      );
     }
   }
 
@@ -115,7 +106,9 @@ function renderGame(game) {
             item.textContent = "···";
           } else {
             item.classList.add("occupied");
-            const isNew = newCellsByPlayer[index].some((c) => c.col === colIdx && c.row === rowIdx);
+            const isNew = newCellsByPlayer[index].some(
+              (c) => c.col === colIdx && c.row === rowIdx,
+            );
             const diceFace = createCellDiceFace(val, isNew);
             if (freq[val] > 1) diceFace.classList.add("dice-multiplied");
             item.appendChild(diceFace);
@@ -151,8 +144,31 @@ function renderGame(game) {
   }
 }
 
+function playColumn(columnIndex) {
+  fetch(`${baseUrl}/play/${gameId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id_game: gameId,
+      id_player: currentPlayer.id,
+      column: columnIndex,
+    }),
+  });
+}
+
 function resetGame() {
-  socket.emit("reset_game/" + gameId);
+  fetch(`${baseUrl}/reset-game/${gameId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id_game: gameId,
+      id_player: currentPlayer.id,
+    }),
+  });
 }
 window.resetGame = resetGame;
 
@@ -161,28 +177,58 @@ function clearStoredGame() {
   localStorage.removeItem("player");
 }
 
-// index.js redirects straight back into the game while these keys exist,
-// so leaving has to clear them before navigating.
 function leaveGame() {
+  leaving = true;
   clearStoredGame();
   window.location.href = "/";
 }
 window.leaveGame = leaveGame;
+
+async function closeGameAndLeave() {
+  leaving = true;
+  try {
+    if (gameId) {
+      await fetch(`${baseUrl}/leave-game/${gameId}`, { method: "POST" });
+    }
+  } catch (e) {}
+  leaveGame();
+}
+
+window.closeGameAndLeave = closeGameAndLeave;
+
+window.addEventListener("beforeunload", () => {
+  if (leaving || !gameId) return;
+  navigator.sendBeacon(`${baseUrl}/leave-game/${gameId}`);
+});
 
 function sendMessage() {
   const input = document.getElementById("messageInput");
   if (!input) return;
   const msg = input.value.trim();
   if (!msg) return;
-  socket.emit("message/" + gameId, { id_game: gameId, message: msg, id_player: currentPlayer.id });
+  fetch(`${baseUrl}/message/${gameId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id_game: gameId,
+      id_player: currentPlayer.id,
+      message: msg,
+    }),
+  });
   input.value = "";
 }
 
-// --- Socket events ---
+function hideLoading() {
+  const loading = document.getElementById("ritualLoading");
+  if (!loading) return;
+  loading.classList.add("hidden");
+  setTimeout(() => loading.remove(), 800);
+}
 
-socket.on("game_state/" + gameId, (game) => {
+function applyGameState(game) {
   if (!game || !game.players) return;
-  SoundManager.play('wood');
   gameState = game;
 
   if (game.state === "waiting") {
@@ -198,50 +244,92 @@ socket.on("game_state/" + gameId, (game) => {
 
   hideStatus();
   renderGame(game);
-  setTimeout(() => {
-    animateDice(game.dice, game.turn)
-    SoundManager.play('dice');
-  }, 600);
+}
+
+async function loadInitialState() {
+  try {
+    const res = await fetch(`${baseUrl}/game/${gameId}`);
+    if (res.status === 404) {
+      leaveGame();
+      return;
+    }
+    if (!res.ok) return;
+    const { game } = await res.json();
+    applyGameState(game);
+  } catch (e) {}
+}
+
+const channel = supabase.channel(gameId, {
+  config: { presence: { key: currentPlayer?.id } },
 });
 
-socket.on("play_error/" + gameId + "/" + currentPlayer.id, (errorMsg) => {
-  SoundManager.play('message');
-  displayMessage(errorMsg || "Hubo un error en el ritual.", "error");
-});
+channel
+  .on("broadcast", { event: "game_state" }, ({ payload: game }) => {
+    if (!game || !game.players) return;
+    SoundManager.play("wood");
+    applyGameState(game);
 
-socket.on("agent_unavailable/" + gameId, ({ message }) => {
-  SoundManager.play('message');
-  displayMessage(message || "El oponente no está disponible.", "error");
-});
+    if (game.state === "playing") {
+      setTimeout(() => {
+        animateDice(game.dice, game.turn);
+        SoundManager.play("dice");
+      }, 600);
+    }
+  })
+  .on(
+    "broadcast",
+    { event: "play_error/" + currentPlayer.id },
+    ({ payload }) => {
+      SoundManager.play("message");
+      displayMessage(payload?.error || "Hubo un error en el ritual.", "error");
+    },
+  )
+  .on("broadcast", { event: "agent_unavailable" }, ({ payload }) => {
+    SoundManager.play("message");
+    displayMessage(
+      payload?.message || "El oponente no está disponible.",
+      "error",
+    );
+  })
+  .on("broadcast", { event: "message" }, ({ payload }) => {
+    const { message, id_player } = payload ?? {};
+    if (!gameState) return;
+    const playerIndex = gameState.players.findIndex((p) => p.id === id_player);
+    if (playerIndex === -1) return;
+    SoundManager.play("message");
+    showSpeechBubble(playerIndex, message);
+  })
+  .on("broadcast", { event: "game_closed" }, () => {
+    if (leaving) return;
+    leaving = true;
+    displayMessage("El rival abandonó el ritual. La partida terminó.", "error");
+    setTimeout(() => leaveGame(), 1500);
+  })
+  .on("presence", { event: "join" }, ({ key, newPresences }) => {
+    console.log("presence join", key, newPresences);
+  })
+  .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+    console.log("presence leave", key, leftPresences);
+    if (leaving) return;
+    closeGameAndLeave();
+  })
+  .subscribe(async (status) => {
+    if (status === "SUBSCRIBED") {
+      hideLoading();
+      await channel.track({ id: currentPlayer?.id, name: currentPlayer?.name });
+      loadInitialState();
+      return;
+    }
 
-socket.on("server_error/" + gameId, (errorMsg) => {
-  SoundManager.play('message');
-  displayMessage(errorMsg || "El servicio no está disponible.", "error");
-});
-
-socket.on("message/" + gameId, ({ message, id_player }) => {
-  if (!gameState) return;
-  const playerIndex = gameState.players.findIndex((p) => p.id === id_player);
-  if (playerIndex === -1) return;
-  SoundManager.play('message');
-  showSpeechBubble(playerIndex, message);
-});
-
-socket.on("connect", () => {
-  const loading = document.getElementById("ritualLoading");
-  if (loading) {
-    loading.classList.add("hidden");
-    setTimeout(() => loading.remove(), 800);
-  }
-});
-
-socket.on("connect_error", () => {
-  leaveGame();
-});
-
-// --- UI bindings ---
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      leaveGame();
+    }
+  });
 
 const messageInput = document.getElementById("messageInput");
 const messageSendBtn = document.getElementById("messageSendBtn");
-if (messageInput) messageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+if (messageInput)
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
 if (messageSendBtn) messageSendBtn.addEventListener("click", sendMessage);
