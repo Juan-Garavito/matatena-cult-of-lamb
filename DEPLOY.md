@@ -1,8 +1,20 @@
 # Deploying to Vercel
 
-This configuration lives on the `vercel` branch only. `main` stays free of
-platform-specific code so the game can be published anywhere else, so rebase
-this branch onto `main` rather than merging it back.
+The `vercel` branch carries the platform-specific deploy config (`vercel.json`,
+`api/server.ts`, the `!process.env.VERCEL` listen guard) on top of the app code
+from `main`. `main` stays free of Vercel-specific files so the game can be
+hosted anywhere else.
+
+## Architecture: why this works on serverless
+
+Live updates go through **Supabase Realtime**, not a socket held open by the
+server. The browser subscribes **directly to Supabase**; the Vercel Function
+only handles plain HTTP requests and fires broadcasts to Supabase over REST.
+
+That is the whole reason this deploys cleanly: Vercel Functions are ephemeral
+and stateless, so they cannot hold WebSocket connections or share in-memory
+state across instances. By keeping realtime in Supabase (an external, always-on
+service), none of that matters — every function invocation is request/response.
 
 ## Required environment variables
 
@@ -10,72 +22,39 @@ Set these in **Project Settings → Environment Variables**:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `SUPABASE_URL` | yes | Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | Server-side only |
+| `SUPABASE_URL` | yes | Project URL (used by server and client) |
+| `SUPABASE_ANON_KEY` | yes | Public key injected into the browser via `/js/env.js` — relies on RLS, safe to expose |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Server-side only — used for REST broadcasts and DB writes |
 | `SUPABASE_DB_URL` | yes | Session-mode string, **port 5432** (not pgbouncer 6543) |
 | `GOOGLE_API_KEY` | yes | Gemini key |
 | `GOOGLE_MODEL` | yes | e.g. `gemini-2.5-flash` |
 | `API_URL` | yes | Deployment URL, e.g. `https://matatena.vercel.app` |
-| `SOCKET_PATH` | yes | Must be `/api/server/socket.io` on Vercel |
-| `AGENT_TIMEOUT_MS` | no | Defaults to `20000` |
+| `AGENT_TIMEOUT_MS` | no | Per model call. Defaults to `20000` |
 | `PORT` | no | Ignored on Vercel |
 
 `VERCEL` is injected by the platform and makes `src/server/server.ts` skip
-`listen()`, exporting the HTTP server instead.
+`listen()`, exporting the HTTP server instead (imported by `api/server.ts`).
 
-## Requirements
+There is **no** `SOCKET_PATH`, no Fluid-compute requirement, and no WebSocket
+beta feature to enable — the client never opens a socket to the function.
 
-- **Fluid compute must be enabled** (default for projects created after
-  2025-04-23). WebSockets do not work without it.
-- The **WebSockets** feature must be available on the account — it is in
-  public beta as of June 2026.
+## The one real serverless constraint: the AI turn
 
-## Known limitation: cross-instance broadcasting
+The singleplayer bot runs a LangGraph agent **inside** the request that triggers
+it (`/create-game`, `/play`). That agent makes several sequential Gemini calls
+(up to `AGENT_TIMEOUT_MS` each), so a bot turn can take well over 10 seconds.
 
-This is the one that breaks the game, and it is not a configuration problem.
+`vercel.json` sets `maxDuration: 60`, which covers it — but **the free plan caps
+functions at 10s**, where a slow bot turn will be killed mid-thought. To run on
+free, the bot turn must be moved out of the request (a queue/worker such as
+Inngest or QStash). On a paid plan, the inline `await` fits inside 60s.
 
-A WebSocket connection is pinned to a single function instance, but **new
-connections are not guaranteed to reach the same instance**. Socket.IO keeps
-its connection registry in memory, so `io.emit(...)` only reaches clients
-attached to the instance that runs the emit.
-
-What breaks as a result:
-
-- **Multiplayer**: two players usually land on different instances, so
-  neither sees the other's moves.
-- **Singleplayer bot join**: `POST /create-game` runs in a different
-  invocation than the one holding the player's socket, so the
-  `sendGameState` emitted after the bot joins never arrives.
-
-The fix is a Socket.IO adapter backed by an external store, which moves the
-registry and the pub/sub out of process memory:
-
-```bash
-npm install @socket.io/redis-adapter redis
-```
-
-```ts
-// src/server/socket.ts
-io.adapter(createAdapter(pubClient, subClient));
-```
-
-Provision Redis from the Vercel Marketplace and wire the client with the
-connection string it exposes. **Until this is done, only a single-instance
-host behaves correctly.**
-
-## Max duration
-
-`vercel.json` sets `maxDuration: 60`. A WebSocket connection closes when the
-function reaches that limit, so a match longer than 60 seconds will drop the
-socket. `src/public/js/game.js` does not implement reconnect-with-backoff yet;
-Socket.IO reconnects automatically, but any state held only in memory is lost.
-
-Raise `maxDuration` on a paid plan if longer sessions are needed.
+Any artificial "thinking" delay for the bot belongs on the **client**, never as
+a server-side sleep — serverless bills execution time.
 
 ## Alternative: a single long-lived host
 
-If the realtime behaviour matters more than the serverless model, deploying
-the same Express + Socket.IO server to a host that keeps one process alive
-(Railway, Render, Fly.io) needs no adapter and no `SOCKET_PATH` override —
-`npm run build && npm start` is enough, plus copying `src/public` into the
-build output.
+If you would rather not deal with the serverless timeout at all, the same
+Express app runs unchanged on a host that keeps one process alive (Railway,
+Render, Fly.io): `npm run build && npm start`, plus serving `src/public`.
+Supabase Realtime works there too, so nothing else changes.
