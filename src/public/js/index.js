@@ -1,5 +1,4 @@
-
-import { SoundManager } from './sounds.js';
+import { SoundManager } from "./sounds.js";
 SoundManager.init();
 
 const currentGameId = localStorage.getItem("currentGameId");
@@ -35,21 +34,20 @@ document
     loading.classList.add("show");
 
     try {
-      // 1. Crear el juego
       const baseUrl = window.ENV ? window.ENV.API_URL : "";
       const createResponse = await fetch(`${baseUrl}/create-game`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({type: "multiplayer"}),
+        body: JSON.stringify({ type: "multiplayer" }),
       });
 
       if (!createResponse.ok) throw new Error("Error al crear la sala");
 
       const createData = await createResponse.json();
       const gameId = createData.gameId;
-      
+
       loading.classList.remove("show");
       await unirAlJuego(gameId, playerName);
       window.location.href = `/game.html?id=${gameId}`;
@@ -58,7 +56,6 @@ document
       loading.classList.remove("show");
     }
   });
-
 
 document
   .getElementById("joinGameForm")
@@ -75,7 +72,7 @@ document
     message.classList.remove("show", "success", "error");
 
     try {
-     await unirAlJuego(gameId, playerName);
+      await unirAlJuego(gameId, playerName);
       loading.classList.remove("show");
       message.classList.add("show", "success");
 
@@ -87,7 +84,6 @@ document
       message.textContent = `Error: ${error.message}`;
     }
   });
-
 
 document
   .getElementById("soloGameForm")
@@ -113,7 +109,6 @@ document
     }
   });
 
-
 async function unirAlJuego(id_game, playerName) {
   const baseUrl = window.ENV ? window.ENV.API_URL : "";
   const response = await fetch(`${baseUrl}/join-game`, {
@@ -133,6 +128,3 @@ async function unirAlJuego(id_game, playerName) {
   localStorage.setItem("player", JSON.stringify(data.player));
   localStorage.setItem("currentGameId", id_game);
 }
-
-
-

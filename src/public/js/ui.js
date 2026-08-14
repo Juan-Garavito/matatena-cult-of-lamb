@@ -66,7 +66,7 @@ export function showGameResult(gameState) {
       <h2>✦ FIN DEL RITUAL ✦</h2>
       <p>${winner.name} ha sido coronado!</p>
       <p>${winner.name}: ${winner.totalPoints} pts | ${loser.name}: ${loser.totalPoints} pts</p>
-      <button class="back-button btn-lamb" onclick="window.leaveGame()">VOLVER AL ALTAR</button>
+      <button class="back-button btn-lamb" onclick="window.closeGameAndLeave()">VOLVER AL ALTAR</button>
       <button class="back-button btn-lamb" onclick="window.resetGame()">JUGAR DE NUEVO</button>
     </div>`;
 }
@@ -79,13 +79,13 @@ export function showWaitingForPlayer(gameState, gameId) {
     ? `<div class="modal-panel">
         <h2>✦ INVOCANDO AL ORÁCULO ✦</h2>
         <p>El oráculo está preparando su estrategia...</p>
-        <button class="back-button btn-lamb" onclick="window.leaveGame()">VOLVER AL INICIO</button>
+        <button class="back-button btn-lamb" onclick="window.closeGameAndLeave()">VOLVER AL INICIO</button>
       </div>`
     : `<div class="modal-panel">
         <h2>✦ ESPERANDO A LOS DEMÁS ADEPTOS ✦</h2>
         <p>El ritual aún no está completo. Comparte el ID de esta sala con tu oponente:</p>
         <p style="font-size: 1.5rem; font-weight: bold; margin: 1rem 0; color: var(--gold);">${gameId}</p>
-        <button class="back-button btn-lamb" onclick="window.leaveGame()">VOLVER AL INICIO</button>
+        <button class="back-button btn-lamb" onclick="window.closeGameAndLeave()">VOLVER AL INICIO</button>
       </div>`;
 }
 
