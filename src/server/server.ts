@@ -1,16 +1,15 @@
 import "dotenv/config";
 import express from "express";
-import http from "http";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import path, { dirname } from "path";
 import {
-  doPlaySocket,
+  playAndBroadcast,
   sendMessage,
   sendGameState,
   sendError,
   notifyGameClosed,
-} from "./socket.js";
+} from "./realtime.js";
 import {
   createGame,
   createPlayer,
@@ -45,7 +44,6 @@ const resolveStaticDir = (): string => {
 const staticDir = resolveStaticDir();
 
 const app = express();
-const server = http.createServer(app);
 app.use(express.json());
 app.use(express.static(staticDir));
 
@@ -65,7 +63,7 @@ app.get("/js/env.js", (req, res) => {
   );
 });
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Servidor corriendo en ${API_URL}`);
 });
 
@@ -188,7 +186,7 @@ app.post("/play/:idGame", async (req, res) => {
   const { column, id_game, id_player } = playRequest;
 
   try {
-    const { error } = await doPlaySocket(column, id_player, id_game);
+    const { error } = await playAndBroadcast(column, id_player, id_game);
 
     if (error) {
       await sendError(id_game, id_player, error);
@@ -278,25 +276,3 @@ app.post("/message/:idGame", async (req, res) => {
     throw error;
   }
 });
-
-// io.on("connection", async (socket) => {
-//   const { idGame } = socket.handshake.auth;
-
-//   try {
-//     await sendGameState(idGame);
-//   } catch (error) {
-//     if (error instanceof DbUnavailableError) {
-//       await sendError(
-//         idGame,
-//         socket.handshake.auth.idPlayer,
-//         "Servicio no disponible",
-//       );
-//     } else {
-//       throw error;
-//     }
-//   }
-
-//   socket.on("disconnect", () => {
-//     console.log("Cliente desconectado:", socket.id);
-//   });
-// });

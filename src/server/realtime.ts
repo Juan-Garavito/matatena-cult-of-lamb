@@ -48,7 +48,7 @@ export const notifyGameClosed = async (id_game: string) => {
   await broadcast(id_game, "game_closed", {});
 };
 
-export const doPlaySocket = async (
+export const playAndBroadcast = async (
   column: number,
   id_player: string,
   id_game: string,

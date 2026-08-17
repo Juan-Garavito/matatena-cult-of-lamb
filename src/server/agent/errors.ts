@@ -23,7 +23,7 @@ const PLAYER_MESSAGES: Record<AgentUnavailableReason, string> = {
  * cannot answer: exhausted quota, invalid key, timeout, or an unreachable
  * service.
  *
- * Callers at the socket boundary use `reason` to decide the recovery path and
+ * Callers at the realtime boundary use `reason` to decide the recovery path and
  * `playerMessage` to tell the human what happened. A failure here is never
  * fatal for the game — `agent/recovery.ts` keeps the match going.
  */

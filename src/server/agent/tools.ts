@@ -4,7 +4,7 @@ import { createPlayer, addPlayerToGame } from "../game.js";
 import { createBot } from "./data.js";
 import { PlayerSchema } from "../types/game.schema.js";
 import { readFile } from "fs/promises";
-import { doPlaySocket, sendGameState, sendMessage } from "../socket.js";
+import { playAndBroadcast, sendGameState, sendMessage } from "../realtime.js";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -46,7 +46,7 @@ export const JoinToGameAgent = tool(
 
 export const playGameAgent = tool(
   async ({ column, id_player, id_game }) => {
-    const result = await doPlaySocket(column, id_player, id_game);
+    const result = await playAndBroadcast(column, id_player, id_game);
     if (result.error) {
       return { error: result.error, gameState: null };
     }

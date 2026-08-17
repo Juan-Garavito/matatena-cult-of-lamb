@@ -9,10 +9,10 @@ import {
 import { createBot } from "./data.js";
 import { addPlayerToGame, createPlayer, getGameById } from "../game.js";
 import {
-  doPlaySocket,
+  playAndBroadcast,
   notifyAgentUnavailable,
   sendGameState,
-} from "../socket.js";
+} from "../realtime.js";
 import { DbUnavailableError } from "../db/errors.js";
 
 const createFallbackBot = async (id_game: string): Promise<boolean> => {
@@ -54,7 +54,7 @@ const playFallbackMove = async (
   const column = chooseFallbackColumn(game, id_bot);
   if (column === null) return false;
 
-  const result = await doPlaySocket(column, id_bot, id_game);
+  const result = await playAndBroadcast(column, id_bot, id_game);
   return !result.error;
 };
 
