@@ -8,9 +8,12 @@ const broadcast = async (
   event: string,
   payload: unknown,
 ): Promise<void> => {
+  // `?private=true` is required for topics the clients subscribe to with
+  // `config: { private: true }` — without it Realtime treats this as a
+  // different, public topic and subscribers never receive the message.
   const url = `${SUPABASE_URL}/realtime/v1/api/broadcast/${encodeURIComponent(
     id_game,
-  )}/events/${encodeURIComponent(event)}`;
+  )}/events/${encodeURIComponent(event)}?private=true`;
 
   const response = await fetch(url, {
     method: "POST",

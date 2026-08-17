@@ -28,6 +28,7 @@ import {
 } from "./types/game.schema.js";
 import { runAgentWithFallback } from "./agent/recovery.js";
 import { getBotByGame } from "./agent/data.js";
+import { signGameToken } from "./auth/token.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -124,6 +125,7 @@ app.post("/join-game", async (req, res) => {
     res.json({
       success: true,
       player: { id: newPlayer.id, name: newPlayer.name },
+      token: signGameToken(data.id_game, newPlayer.id),
     });
   } catch (error) {
     if (error instanceof DbUnavailableError) {

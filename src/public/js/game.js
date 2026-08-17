@@ -12,6 +12,7 @@ import { supabase } from "./supabase.js";
 
 let currentPlayer = null;
 let gameId = null;
+let gameToken = null;
 let gameState = null;
 let previousTables = [null, null];
 let leaving = false;
@@ -42,13 +43,19 @@ SoundManager.init();
   }
 })();
 
-(function loadGame() {
+const hasSession = (function loadGame() {
   try {
     gameId = localStorage.getItem("currentGameId");
+    gameToken = localStorage.getItem("gameToken");
     currentPlayer = JSON.parse(localStorage.getItem("player") ?? "");
-    if (!gameId || !currentPlayer || !currentPlayer.id) leaveGame();
+    if (!gameId || !gameToken || !currentPlayer?.id) {
+      leaveGame();
+      return false;
+    }
+    return true;
   } catch (e) {
     leaveGame();
+    return false;
   }
 })();
 
@@ -186,6 +193,7 @@ window.resetGame = resetGame;
 function clearStoredGame() {
   localStorage.removeItem("currentGameId");
   localStorage.removeItem("player");
+  localStorage.removeItem("gameToken");
 }
 
 function leaveGame() {
@@ -270,8 +278,16 @@ async function loadInitialState() {
   } catch (e) {}
 }
 
+// `loadGame` already redirected; assigning location.href does not stop this
+// module from running, so bail explicitly before touching currentPlayer.id.
+if (!hasSession) throw new Error("Sesión de partida incompleta.");
+
+// Authorizes this browser against the RLS policies on `realtime.messages`.
+// Must run before `.subscribe()` — a private channel with no token is rejected.
+await supabase.realtime.setAuth(gameToken);
+
 const channel = supabase.channel(gameId, {
-  config: { presence: { key: currentPlayer?.id } },
+  config: { private: true, presence: { key: currentPlayer.id } },
 });
 
 channel
@@ -343,7 +359,7 @@ channel
   .subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       hideLoading();
-      await channel.track({ id: currentPlayer?.id, name: currentPlayer?.name });
+      await channel.track({ id: currentPlayer.id, name: currentPlayer.name });
       loadInitialState();
       return;
     }
