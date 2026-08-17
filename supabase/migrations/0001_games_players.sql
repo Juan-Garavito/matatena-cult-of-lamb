@@ -22,5 +22,5 @@ create table if not exists players (
   unique (game_id, seat)
 );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.games TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.players TO service_role;
+alter table public.games enable row level security;
+alter table public.players enable row level security;
