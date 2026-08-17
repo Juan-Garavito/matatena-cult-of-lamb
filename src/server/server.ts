@@ -192,7 +192,7 @@ app.post("/play/:idGame", async (req, res) => {
 
     if (error) {
       await sendError(id_game, id_player, error);
-      return;
+      return res.status(400).json({ error });
     }
 
     const updatedGame = await getGameById(id_game);
@@ -213,8 +213,11 @@ app.post("/play/:idGame", async (req, res) => {
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(id_game, id_player, "Servicio no disponible");
-      return res.status(500).json({ error: "Error interno del servidor" });
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
     }
+    throw error;
   }
 });
 
@@ -226,6 +229,7 @@ app.post("/reset-game/:idGame", async (req, res) => {
     const result = await resetGame(idGame);
     if (!result.ok) return res.status(400).json({ error: result.error });
     await sendGameState(idGame);
+    return res.json({ success: true });
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(idGame, idPlayer, "Servicio no disponible");
@@ -233,6 +237,7 @@ app.post("/reset-game/:idGame", async (req, res) => {
         .status(503)
         .json({ error: "Servicio no disponible, intenta más tarde." });
     }
+    throw error;
   }
 });
 
@@ -242,13 +247,14 @@ app.post("/message/:idGame", async (req, res) => {
     await MessageRequestSchema.safeParseAsync(req.body);
 
   if (!success) {
-    return;
+    return res.status(400).json({ error: "Faltan datos requeridos" });
   }
 
   const { id_game, message, id_player } = messageRequest;
-  sendMessage(id_game, id_player, message);
 
   try {
+    await sendMessage(id_game, id_player, message);
+
     const game = await getGameById(idGame);
     if (game?.game.type == "singleplayer") {
       const botPlayer = getBotByGame(game.game);
@@ -260,10 +266,14 @@ app.post("/message/:idGame", async (req, res) => {
         gameState: game,
       });
     }
+
+    return res.json({ success: true });
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(idGame, id_player, "Servicio no disponible");
-      return;
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
     }
     throw error;
   }

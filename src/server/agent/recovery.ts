@@ -109,7 +109,7 @@ export const runAgentWithFallback = async (
   if (!id_game) return;
 
   try {
-    notifyAgentUnavailable(id_game, await recover(input, id_game, error));
+    await notifyAgentUnavailable(id_game, await recover(input, id_game, error));
   } catch (cause) {
     if (cause instanceof DbUnavailableError) {
       console.error("Fallback del agente sin base de datos:", cause);
