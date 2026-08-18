@@ -133,6 +133,8 @@ app.post("/join-game", async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
+    await sendGameState(data.id_game);
+
     res.json({
       success: true,
       player: { id: newPlayer.id, name: newPlayer.name },
