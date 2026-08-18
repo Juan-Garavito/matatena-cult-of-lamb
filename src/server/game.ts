@@ -276,7 +276,7 @@ const addPlayerToGame = async (
       const playerRow = toPlayerRow(player, id_game, seat);
 
       await client.query(
-        'INSERT INTO players (id, game_id, seat, name, type, "table", points, total_points) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        'INSERT INTO players (id, game_id, seat, name, type, "table", points, total_points, personality, smart) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
         [
           playerRow.id,
           playerRow.game_id,
@@ -286,6 +286,8 @@ const addPlayerToGame = async (
           JSON.stringify(playerRow.table),
           JSON.stringify(playerRow.points),
           playerRow.total_points,
+          playerRow.personality,
+          playerRow.smart,
         ],
       );
 
@@ -447,7 +449,16 @@ const resetGame = async (
   }
 };
 
-const createPlayer = (name: string, type: TypePlayer): Player => {
+/**
+ * Builds an in-memory player. `traits` is only ever passed for bots — it
+ * carries the personality and skill level the agent was created with, and
+ * rides along into the `players` row so it survives a restart.
+ */
+const createPlayer = (
+  name: string,
+  type: TypePlayer,
+  traits?: { personality: string; smart: number },
+): Player => {
   return {
     id: randomUUID(),
     name: name,
@@ -455,6 +466,7 @@ const createPlayer = (name: string, type: TypePlayer): Player => {
     points: emptyPoints(),
     totalPoints: 0,
     type: type,
+    ...(traits ?? {}),
   };
 };
 

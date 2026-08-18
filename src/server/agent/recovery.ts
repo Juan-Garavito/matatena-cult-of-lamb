@@ -6,7 +6,6 @@ import {
   FALLBACK_BOT_PERSONALITY,
   FALLBACK_BOT_SMART,
 } from "./fallback.js";
-import { createBot } from "./data.js";
 import { addPlayerToGame, createPlayer, getGameById } from "../game.js";
 import {
   playAndBroadcast,
@@ -21,9 +20,10 @@ const createFallbackBot = async (id_game: string): Promise<boolean> => {
   if (wrapper.game.players.length >= 2) return false;
 
   const name = pickFallbackBotName();
-  const player = createPlayer(name, "bot");
-
-  createBot(player.id, name, FALLBACK_BOT_PERSONALITY, FALLBACK_BOT_SMART);
+  const player = createPlayer(name, "bot", {
+    personality: FALLBACK_BOT_PERSONALITY,
+    smart: FALLBACK_BOT_SMART,
+  });
 
   const result = await addPlayerToGame(id_game, player);
   if (!result.ok) return false;
