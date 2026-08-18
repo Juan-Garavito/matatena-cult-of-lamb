@@ -13,7 +13,7 @@
 
 alter table public.players
   add column if not exists personality text,
-  add column if not exists smart smallint;
+  add column if not exists smart float4;
 
 -- Every bot must carry both traits; humans must carry neither. This is the last
 -- line of defence: the agent hands the player object from create_player to

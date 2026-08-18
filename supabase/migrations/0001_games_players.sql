@@ -24,3 +24,6 @@ create table if not exists players (
 
 alter table public.games enable row level security;
 alter table public.players enable row level security;
+
+grant select, insert, update, delete on public.games to service_role;
+grant select, insert, update, delete on public.players to service_role;
