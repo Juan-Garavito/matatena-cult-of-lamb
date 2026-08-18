@@ -6,13 +6,12 @@ import {
   FALLBACK_BOT_PERSONALITY,
   FALLBACK_BOT_SMART,
 } from "./fallback.js";
-import { createBot } from "./data.js";
 import { addPlayerToGame, createPlayer, getGameById } from "../game.js";
 import {
-  doPlaySocket,
+  playAndBroadcast,
   notifyAgentUnavailable,
   sendGameState,
-} from "../socket.js";
+} from "../realtime.js";
 import { DbUnavailableError } from "../db/errors.js";
 
 const createFallbackBot = async (id_game: string): Promise<boolean> => {
@@ -21,9 +20,10 @@ const createFallbackBot = async (id_game: string): Promise<boolean> => {
   if (wrapper.game.players.length >= 2) return false;
 
   const name = pickFallbackBotName();
-  const player = createPlayer(name, "bot");
-
-  createBot(player.id, name, FALLBACK_BOT_PERSONALITY, FALLBACK_BOT_SMART);
+  const player = createPlayer(name, "bot", {
+    personality: FALLBACK_BOT_PERSONALITY,
+    smart: FALLBACK_BOT_SMART,
+  });
 
   const result = await addPlayerToGame(id_game, player);
   if (!result.ok) return false;
@@ -54,7 +54,7 @@ const playFallbackMove = async (
   const column = chooseFallbackColumn(game, id_bot);
   if (column === null) return false;
 
-  const result = await doPlaySocket(column, id_bot, id_game);
+  const result = await playAndBroadcast(column, id_bot, id_game);
   return !result.error;
 };
 
@@ -109,7 +109,7 @@ export const runAgentWithFallback = async (
   if (!id_game) return;
 
   try {
-    notifyAgentUnavailable(id_game, await recover(input, id_game, error));
+    await notifyAgentUnavailable(id_game, await recover(input, id_game, error));
   } catch (cause) {
     if (cause instanceof DbUnavailableError) {
       console.error("Fallback del agente sin base de datos:", cause);

@@ -19,6 +19,9 @@ export const GameSchema = z.object({
           }),
           totalPoints: z.number(),
           type: z.literal(["human", "bot"]),
+          // Only bots carry these; they drive how the agent plays and talks.
+          personality: z.string().optional(),
+          smart: z.number().min(1).max(10).optional(),
         }),
       )
       .length(2),

@@ -28,6 +28,8 @@ export interface PlayerRow {
   table: Table;
   points: Points;
   total_points: number;
+  personality: string | null;
+  smart: number | null;
 }
 
 /**
@@ -64,6 +66,10 @@ export const toPlayer = (playerRow: PlayerRow): Player => ({
   points: playerRow.points,
   totalPoints: playerRow.total_points,
   type: playerRow.type,
+  // Spread conditionally rather than assigning null: `exactOptionalPropertyTypes`
+  // treats an explicit undefined as different from an absent property.
+  ...(playerRow.personality !== null && { personality: playerRow.personality }),
+  ...(playerRow.smart !== null && { smart: playerRow.smart }),
 });
 
 /**
@@ -83,4 +89,6 @@ export const toPlayerRow = (
   table: player.table,
   points: player.points,
   total_points: player.totalPoints,
+  personality: player.personality ?? null,
+  smart: player.smart ?? null,
 });

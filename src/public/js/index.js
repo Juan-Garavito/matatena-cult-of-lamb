@@ -127,4 +127,5 @@ async function unirAlJuego(id_game, playerName) {
   const data = await response.json();
   localStorage.setItem("player", JSON.stringify(data.player));
   localStorage.setItem("currentGameId", id_game);
+  localStorage.setItem("gameToken", data.token);
 }

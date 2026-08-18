@@ -1,16 +1,15 @@
 import "dotenv/config";
 import express from "express";
-import http from "http";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import path, { dirname } from "path";
 import {
-  doPlaySocket,
+  playAndBroadcast,
   sendMessage,
   sendGameState,
   sendError,
   notifyGameClosed,
-} from "./socket.js";
+} from "./realtime.js";
 import {
   createGame,
   createPlayer,
@@ -29,16 +28,11 @@ import {
 } from "./types/game.schema.js";
 import { runAgentWithFallback } from "./agent/recovery.js";
 import { getBotByGame } from "./agent/data.js";
+import { signGameToken } from "./auth/token.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/**
- * Locates the browser assets. `__dirname` alone is not enough: it points at
- * `src/server` under tsx, at `dist/server` after `tsc` (which does not copy
- * html/css/js), and at the bundle location on Vercel. Falling back to the
- * repo-relative path keeps all three working.
- */
 const resolveStaticDir = (): string => {
   const candidates = [
     path.join(__dirname, "../public"),
@@ -51,7 +45,6 @@ const resolveStaticDir = (): string => {
 const staticDir = resolveStaticDir();
 
 const app = express();
-const server = http.createServer(app);
 app.use(express.json());
 app.use(express.static(staticDir));
 
@@ -71,13 +64,11 @@ app.get("/js/env.js", (req, res) => {
   );
 });
 
-// On Vercel the platform owns the listener: it imports the exported server
-// instead of us binding a port.
+// On Vercel the platform owns the listener — api/server.ts imports the app
+// exported below and Vercel binds it. Locally we bind the port ourselves.
 if (!process.env.VERCEL) {
-  server.listen(PORT, () => {
-    console.log(
-      `Servidor corriendo en ${API_URL || `http://localhost:${PORT}`}`,
-    );
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en ${API_URL}`);
   });
 }
 
@@ -138,6 +129,7 @@ app.post("/join-game", async (req, res) => {
     res.json({
       success: true,
       player: { id: newPlayer.id, name: newPlayer.name },
+      token: signGameToken(data.id_game, newPlayer.id),
     });
   } catch (error) {
     if (error instanceof DbUnavailableError) {
@@ -200,11 +192,11 @@ app.post("/play/:idGame", async (req, res) => {
   const { column, id_game, id_player } = playRequest;
 
   try {
-    const { error } = await doPlaySocket(column, id_player, id_game);
+    const { error } = await playAndBroadcast(column, id_player, id_game);
 
     if (error) {
       await sendError(id_game, id_player, error);
-      return;
+      return res.status(400).json({ error });
     }
 
     const updatedGame = await getGameById(id_game);
@@ -225,8 +217,11 @@ app.post("/play/:idGame", async (req, res) => {
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(id_game, id_player, "Servicio no disponible");
-      return res.status(500).json({ error: "Error interno del servidor" });
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
     }
+    throw error;
   }
 });
 
@@ -238,6 +233,7 @@ app.post("/reset-game/:idGame", async (req, res) => {
     const result = await resetGame(idGame);
     if (!result.ok) return res.status(400).json({ error: result.error });
     await sendGameState(idGame);
+    return res.json({ success: true });
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(idGame, idPlayer, "Servicio no disponible");
@@ -245,6 +241,7 @@ app.post("/reset-game/:idGame", async (req, res) => {
         .status(503)
         .json({ error: "Servicio no disponible, intenta más tarde." });
     }
+    throw error;
   }
 });
 
@@ -254,13 +251,14 @@ app.post("/message/:idGame", async (req, res) => {
     await MessageRequestSchema.safeParseAsync(req.body);
 
   if (!success) {
-    return;
+    return res.status(400).json({ error: "Faltan datos requeridos" });
   }
 
   const { id_game, message, id_player } = messageRequest;
-  sendMessage(id_game, id_player, message);
 
   try {
+    await sendMessage(id_game, id_player, message);
+
     const game = await getGameById(idGame);
     if (game?.game.type == "singleplayer") {
       const botPlayer = getBotByGame(game.game);
@@ -272,16 +270,18 @@ app.post("/message/:idGame", async (req, res) => {
         gameState: game,
       });
     }
+
+    return res.json({ success: true });
   } catch (error) {
     if (error instanceof DbUnavailableError) {
       await sendError(idGame, id_player, "Servicio no disponible");
-      return;
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
     }
     throw error;
   }
 });
 
-// On Vercel, api/server.ts imports this default export; the platform owns the
-// listener. Locally we bind the port in the `!process.env.VERCEL` block above.
-export { app, server };
-export default server;
+export { app };
+export default app;

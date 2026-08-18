@@ -12,9 +12,21 @@ import { supabase } from "./supabase.js";
 
 let currentPlayer = null;
 let gameId = null;
+let gameToken = null;
 let gameState = null;
 let previousTables = [null, null];
 let leaving = false;
+
+/**
+ * How long an opponent may be missing from presence before the game is torn
+ * down. A page reload or a brief network drop unsubscribes and resubscribes
+ * within a second or two; without this window either one would delete the game
+ * out from under both players.
+ */
+const DISCONNECT_GRACE_MS = 10000;
+
+/** Presence key -> pending teardown timer, so a rejoin can cancel it. */
+const pendingDisconnects = new Map();
 
 const baseUrl = window.ENV ? window.ENV.API_URL : "";
 
@@ -31,13 +43,19 @@ SoundManager.init();
   }
 })();
 
-(function loadGame() {
+const hasSession = (function loadGame() {
   try {
     gameId = localStorage.getItem("currentGameId");
+    gameToken = localStorage.getItem("gameToken");
     currentPlayer = JSON.parse(localStorage.getItem("player") ?? "");
-    if (!gameId || !currentPlayer || !currentPlayer.id) leaveGame();
+    if (!gameId || !gameToken || !currentPlayer?.id) {
+      leaveGame();
+      return false;
+    }
+    return true;
   } catch (e) {
     leaveGame();
+    return false;
   }
 })();
 
@@ -175,6 +193,7 @@ window.resetGame = resetGame;
 function clearStoredGame() {
   localStorage.removeItem("currentGameId");
   localStorage.removeItem("player");
+  localStorage.removeItem("gameToken");
 }
 
 function leaveGame() {
@@ -259,8 +278,16 @@ async function loadInitialState() {
   } catch (e) {}
 }
 
+// `loadGame` already redirected; assigning location.href does not stop this
+// module from running, so bail explicitly before touching currentPlayer.id.
+if (!hasSession) throw new Error("Sesión de partida incompleta.");
+
+// Authorizes this browser against the RLS policies on `realtime.messages`.
+// Must run before `.subscribe()` — a private channel with no token is rejected.
+await supabase.realtime.setAuth(gameToken);
+
 const channel = supabase.channel(gameId, {
-  config: { presence: { key: currentPlayer?.id } },
+  config: { private: true, presence: { key: currentPlayer.id } },
 });
 
 channel
@@ -305,18 +332,34 @@ channel
     displayMessage("El rival abandonó el ritual. La partida terminó.", "error");
     setTimeout(() => leaveGame(), 1500);
   })
-  .on("presence", { event: "join" }, ({ key, newPresences }) => {
-    console.log("presence join", key, newPresences);
+  .on("presence", { event: "join" }, ({ key }) => {
+    const pending = pendingDisconnects.get(key);
+    if (!pending) return;
+
+    // The opponent came back inside the grace window — call off the teardown.
+    clearTimeout(pending);
+    pendingDisconnects.delete(key);
+    displayMessage("El rival volvió al ritual.", "success");
   })
-  .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-    console.log("presence leave", key, leftPresences);
-    if (leaving) return;
-    closeGameAndLeave();
+  .on("presence", { event: "leave" }, ({ key }) => {
+    if (leaving || key === currentPlayer.id) return;
+    if (pendingDisconnects.has(key)) return;
+
+    displayMessage("El rival perdió la conexión. Esperando...", "error");
+
+    const timer = setTimeout(() => {
+      pendingDisconnects.delete(key);
+      if (leaving) return;
+      displayMessage("El rival abandonó el ritual. La partida terminó.", "error");
+      closeGameAndLeave();
+    }, DISCONNECT_GRACE_MS);
+
+    pendingDisconnects.set(key, timer);
   })
   .subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       hideLoading();
-      await channel.track({ id: currentPlayer?.id, name: currentPlayer?.name });
+      await channel.track({ id: currentPlayer.id, name: currentPlayer.name });
       loadInitialState();
       return;
     }
@@ -325,6 +368,13 @@ channel
       leaveGame();
     }
   });
+
+// A teardown timer left running would fire against a dead page and delete a
+// game the players may still be in.
+window.addEventListener("beforeunload", () => {
+  pendingDisconnects.forEach((timer) => clearTimeout(timer));
+  pendingDisconnects.clear();
+});
 
 const messageInput = document.getElementById("messageInput");
 const messageSendBtn = document.getElementById("messageSendBtn");

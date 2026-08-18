@@ -1,20 +1,41 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { createPlayer, addPlayerToGame } from "../game.js";
-import { createBot } from "./data.js";
 import { PlayerSchema } from "../types/game.schema.js";
 import { readFile } from "fs/promises";
-import { doPlaySocket, sendGameState, sendMessage } from "../socket.js";
+import { playAndBroadcast, sendGameState, sendMessage } from "../realtime.js";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/**
+ * The player argument for `join_game`, with the bot traits made required.
+ *
+ * The agent hands `create_player`'s result to `join_game`, so the object makes
+ * a round trip through the model. They are optional on `PlayerSchema` because
+ * humans never have them, and leaving them optional here would let the model
+ * quietly drop them — persisting a bot with no personality and no skill level,
+ * which is exactly the silent failure moving them into the database was meant
+ * to end. Requiring them turns a dropped field into a validation error the
+ * model is told about and can retry.
+ */
+const BotPlayerSchema = PlayerSchema.extend({
+  personality: z
+    .string()
+    .describe("The personality returned by create_player. Required."),
+  smart: z
+    .number()
+    .min(1)
+    .max(10)
+    .describe("The smart level returned by create_player. Required."),
+});
+
 export const createPlayerAgent = tool(
   ({ name, personality, smart }) => {
-    const player = createPlayer(name, "bot");
-    createBot(player.id, name, personality, smart);
-    return player;
+    // The traits ride on the player itself, so join_game persists them with
+    // the row instead of them living only in this process's memory.
+    return createPlayer(name, "bot", { personality, smart });
   },
   {
     name: "create_player",
@@ -39,14 +60,16 @@ export const JoinToGameAgent = tool(
     description: "Join an existing game using the player returned by create_player.",
     schema: z.object({
       id_game: z.string().describe("The game ID provided in the user message."),
-      player: PlayerSchema.describe("The full player object returned by create_player."),
+      player: BotPlayerSchema.describe(
+        "The full player object returned by create_player, including its personality and smart fields.",
+      ),
     }),
   },
 );
 
 export const playGameAgent = tool(
   async ({ column, id_player, id_game }) => {
-    const result = await doPlaySocket(column, id_player, id_game);
+    const result = await playAndBroadcast(column, id_player, id_game);
     if (result.error) {
       return { error: result.error, gameState: null };
     }
