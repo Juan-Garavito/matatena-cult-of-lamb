@@ -14,7 +14,6 @@ tabButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const tabName = button.dataset.tab;
 
-    // Remove active class from all buttons and contents
     tabButtons.forEach((btn) => btn.classList.remove("active"));
     tabContents.forEach((content) => content.classList.remove("active"));
 

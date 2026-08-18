@@ -350,7 +350,10 @@ channel
     const timer = setTimeout(() => {
       pendingDisconnects.delete(key);
       if (leaving) return;
-      displayMessage("El rival abandonó el ritual. La partida terminó.", "error");
+      displayMessage(
+        "El rival abandonó el ritual. La partida terminó.",
+        "error",
+      );
       closeGameAndLeave();
     }, DISCONNECT_GRACE_MS);
 
