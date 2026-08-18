@@ -1,5 +1,5 @@
 import { SoundManager } from "./sounds.js";
-import { animateDice, createCellDiceFace } from "./dice.js";
+import { animateDice, createCellDiceFace, renderDiceFace } from "./dice.js";
 import {
   displayMessage,
   updateTurnStatus,
@@ -74,6 +74,14 @@ function getNewlyPlacedCells(oldTable, newTable) {
 
 function renderGame(game) {
   updateTurnStatus(game);
+
+  if (game.state === "playing" && game.dice >= 1 && game.dice <= 6) {
+    renderDiceFace(
+      document.getElementById(`player${game.turn + 1}DiceFace`),
+      game.dice,
+      false,
+    );
+  }
 
   const playerSections = document.querySelectorAll(".player-section");
   const newCellsByPlayer = [[], []];
