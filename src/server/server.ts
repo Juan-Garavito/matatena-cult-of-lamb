@@ -26,6 +26,7 @@ import {
   MessageRequestSchema,
   PlayRequestSchema,
 } from "./types/game.schema.js";
+import { waitUntil } from "@vercel/functions";
 import { runAgentWithFallback } from "./agent/recovery.js";
 import { getBotByGame } from "./agent/data.js";
 import { signGameToken } from "./auth/token.js";
@@ -65,7 +66,7 @@ app.get("/js/env.js", (req, res) => {
 });
 
 // On Vercel the platform owns the listener — api/server.ts imports the app
-// exported below and Vercel binds it. Locally we bind the port ourselves.
+// below and Vercel binds it. Locally we bind the port ourselves.
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Servidor corriendo en ${API_URL}`);
@@ -85,12 +86,18 @@ app.post("/create-game", async (req, res) => {
     const result = await createGame(data.type);
 
     if (result.ok && data.type === "singleplayer") {
-      void runAgentWithFallback({
-        request: "create_player",
-        player: undefined,
-        message: "",
-        gameState: result.data,
-      });
+      // The agent runs after this handler responds. On Vercel the instance is
+      // frozen once the response is sent, so a bare floating promise would be
+      // killed mid-flight and the bot would never take its turn; waitUntil
+      // keeps the invocation alive until it settles.
+      waitUntil(
+        runAgentWithFallback({
+          request: "create_player",
+          player: undefined,
+          message: "",
+          gameState: result.data,
+        }),
+      );
     }
 
     if (result.ok) {
@@ -205,12 +212,14 @@ app.post("/play/:idGame", async (req, res) => {
       updatedGame.game.state !== "finish"
     ) {
       const botPlayer = getBotByGame(updatedGame.game);
-      void runAgentWithFallback({
-        request: "play_game",
-        player: botPlayer ?? undefined,
-        message: "Te toca jugar",
-        gameState: updatedGame,
-      });
+      waitUntil(
+        runAgentWithFallback({
+          request: "play_game",
+          player: botPlayer ?? undefined,
+          message: "Te toca jugar",
+          gameState: updatedGame,
+        }),
+      );
     }
 
     return res.json({ success: true });
@@ -263,12 +272,14 @@ app.post("/message/:idGame", async (req, res) => {
     if (game?.game.type == "singleplayer") {
       const botPlayer = getBotByGame(game.game);
 
-      void runAgentWithFallback({
-        request: "send_message",
-        player: botPlayer ?? undefined,
-        message: message,
-        gameState: game,
-      });
+      waitUntil(
+        runAgentWithFallback({
+          request: "send_message",
+          player: botPlayer ?? undefined,
+          message: message,
+          gameState: game,
+        }),
+      );
     }
 
     return res.json({ success: true });

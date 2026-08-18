@@ -1,12 +1,10 @@
 /**
  * Vercel Function entrypoint.
  *
- * Vercel serves this file at `/api/server` and owns the listener, so the module
- * only re-exports the Express app built in `src/server/server.ts`, which skips
- * `listen()` when `process.env.VERCEL` is set.
- *
- * Every request that is not a static asset reaches this function through the
- * catch-all rewrite in `vercel.json`.
+ * The catch-all rewrite in `vercel.json` routes every request that is not a
+ * static asset here, and Vercel's Node runtime treats the exported Express app
+ * as the request handler. `src/server/server.ts` skips `listen()` when
+ * `process.env.VERCEL` is set, so importing it does not try to bind a port.
  */
 import app from "../src/server/server.js";
 

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Pool, type PoolClient } from "pg";
+import { attachDatabasePool } from "@vercel/functions";
 import { DbUnavailableError } from "./errors.js";
 
 /**
@@ -24,9 +25,21 @@ if (!SUPABASE_DB_URL) {
   console.warn("SUPABASE_DB_URL no está configurada.");
 }
 
+/**
+ * `max` is deliberately small. Serverless scales out by running many instances,
+ * each with its own pool, so a generous per-instance limit multiplies into far
+ * more Postgres connections than Supabase allows. The concurrency ceiling here
+ * is the number of instances, not the size of any one pool.
+ */
 export const pool = new Pool({
   connectionString: SUPABASE_DB_URL,
+  max: 2,
 });
+
+// Releases idle clients before Vercel suspends an instance. Without it a
+// suspended instance holds its connections open and they leak. Outside the
+// Vercel runtime this is a no-op, so local development is unaffected.
+attachDatabasePool(pool);
 
 /**
  * Runs `fn` inside a transaction that holds a row lock on `games` for
