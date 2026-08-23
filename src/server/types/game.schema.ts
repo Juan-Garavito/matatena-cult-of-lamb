@@ -35,7 +35,7 @@ export const GameSchema = z.object({
 
 export const JoinGameRequestSchema = z.object({
   id_game: z.string(),
-  playerName: z.string().min(1),
+  playerName: z.string().trim().min(1).max(24),
 });
 
 export const PlayRequestSchema = z.object({
@@ -50,7 +50,7 @@ export const CreateGameRequestSchema = z.object({
 
 export const MessageRequestSchema = z.object({
   id_game: z.string(),
-  message: z.string().min(1),
+  message: z.string().trim().min(1).max(200),
   id_player: z.string(),
 });
 

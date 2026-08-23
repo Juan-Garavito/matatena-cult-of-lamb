@@ -220,23 +220,70 @@ window.addEventListener("beforeunload", () => {
   navigator.sendBeacon(`${baseUrl}/leave-game/${gameId}`);
 });
 
-function sendMessage() {
+const MESSAGE_COOLDOWN_MS = 1500;
+let messageCooldownUntil = 0;
+let messageCooldownTimer = null;
+let sendingMessage = false;
+
+function applyMessageCooldown(ms) {
+  messageCooldownUntil = Math.max(messageCooldownUntil, Date.now() + ms);
+
+  const button = document.getElementById("messageSendBtn");
+  if (!button) return;
+
+  button.disabled = true;
+  clearTimeout(messageCooldownTimer);
+  messageCooldownTimer = setTimeout(
+    () => {
+      button.disabled = false;
+    },
+    Math.max(messageCooldownUntil - Date.now(), 0),
+  );
+}
+
+async function sendMessage() {
   const input = document.getElementById("messageInput");
   if (!input) return;
+
   const msg = input.value.trim();
   if (!msg) return;
-  fetch(`${baseUrl}/message/${gameId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id_game: gameId,
-      id_player: currentPlayer.id,
-      message: msg,
-    }),
-  });
+  if (sendingMessage || Date.now() < messageCooldownUntil) return;
+
+  sendingMessage = true;
+  applyMessageCooldown(MESSAGE_COOLDOWN_MS);
   input.value = "";
+
+  try {
+    const response = await fetch(`${baseUrl}/message/${gameId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id_game: gameId,
+        id_player: currentPlayer.id,
+        message: msg,
+      }),
+    });
+
+    if (response.status === 429) {
+      const body = await response.json().catch(() => ({}));
+      applyMessageCooldown(body.retryAfterMs ?? 5000);
+      displayMessage(
+        body.error || "Vas demasiado rápido, espera un momento.",
+        "error",
+      );
+      return;
+    }
+
+    if (!response.ok) {
+      displayMessage("No se pudo enviar el mensaje.", "error");
+    }
+  } catch (e) {
+    displayMessage("No se pudo enviar el mensaje.", "error");
+  } finally {
+    sendingMessage = false;
+  }
 }
 
 function hideLoading() {

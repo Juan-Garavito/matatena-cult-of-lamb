@@ -26,9 +26,16 @@ import {
   MessageRequestSchema,
   PlayRequestSchema,
 } from "./types/game.schema.js";
-import { runAgentWithFallback } from "./agent/recovery.js";
+import { scheduleAgentRun } from "./agent/scheduler.js";
 import { getBotByGame } from "./agent/data.js";
 import { signGameToken } from "./auth/token.js";
+import {
+  limitGameAdmin,
+  limitGameCreation,
+  limitJoins,
+  limitMessages,
+  limitPlays,
+} from "./rate-limit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,7 +52,17 @@ const resolveStaticDir = (): string => {
 const staticDir = resolveStaticDir();
 
 const app = express();
-app.use(express.json());
+
+if (process.env.TRUST_PROXY) {
+  const value = process.env.TRUST_PROXY;
+  const asNumber = Number(value);
+  app.set(
+    "trust proxy",
+    Number.isFinite(asNumber) ? asNumber : value === "true" ? true : value,
+  );
+}
+
+app.use(express.json({ limit: "16kb" }));
 app.use(express.static(staticDir));
 
 app.get("/", (req, res) => {
@@ -68,7 +85,7 @@ app.listen(PORT, () => {
   console.log(`Servidor corriendo en ${API_URL}`);
 });
 
-app.post("/create-game", async (req, res) => {
+app.post("/create-game", limitGameCreation, async (req, res) => {
   const { success, data } = await CreateGameRequestSchema.safeParseAsync(
     req.body as TypeGame,
   );
@@ -81,7 +98,7 @@ app.post("/create-game", async (req, res) => {
     const result = await createGame(data.type);
 
     if (result.ok && data.type === "singleplayer") {
-      void runAgentWithFallback({
+      scheduleAgentRun({
         request: "create_player",
         player: undefined,
         message: "",
@@ -104,7 +121,7 @@ app.post("/create-game", async (req, res) => {
   }
 });
 
-app.post("/join-game", async (req, res) => {
+app.post("/join-game", limitJoins, async (req, res) => {
   const { success, data } = await JoinGameRequestSchema.safeParseAsync(
     req.body as JoinGameRequest,
   );
@@ -158,7 +175,7 @@ app.get("/game/:idGame", async (req, res) => {
   }
 });
 
-app.post("/leave-game/:idGame", async (req, res) => {
+app.post("/leave-game/:idGame", limitGameAdmin, async (req, res) => {
   const { idGame } = req.params;
 
   try {
@@ -176,7 +193,7 @@ app.post("/leave-game/:idGame", async (req, res) => {
   }
 });
 
-app.post("/play/:idGame", async (req, res) => {
+app.post("/play/:idGame", limitPlays, async (req, res) => {
   const { success, data: playRequest } = await PlayRequestSchema.safeParseAsync(
     req.body,
   );
@@ -201,7 +218,7 @@ app.post("/play/:idGame", async (req, res) => {
       updatedGame.game.state !== "finish"
     ) {
       const botPlayer = getBotByGame(updatedGame.game);
-      void runAgentWithFallback({
+      scheduleAgentRun({
         request: "play_game",
         player: botPlayer ?? undefined,
         message: "Te toca jugar",
@@ -221,7 +238,7 @@ app.post("/play/:idGame", async (req, res) => {
   }
 });
 
-app.post("/reset-game/:idGame", async (req, res) => {
+app.post("/reset-game/:idGame", limitGameAdmin, async (req, res) => {
   const { idGame } = req.params;
   const { idPlayer } = req.body;
 
@@ -241,7 +258,7 @@ app.post("/reset-game/:idGame", async (req, res) => {
   }
 });
 
-app.post("/message/:idGame", async (req, res) => {
+app.post("/message/:idGame", limitMessages, async (req, res) => {
   const { idGame } = req.params;
   const { success, data: messageRequest } =
     await MessageRequestSchema.safeParseAsync(req.body);
@@ -259,7 +276,7 @@ app.post("/message/:idGame", async (req, res) => {
     if (game?.game.type == "singleplayer") {
       const botPlayer = getBotByGame(game.game);
 
-      void runAgentWithFallback({
+      scheduleAgentRun({
         request: "send_message",
         player: botPlayer ?? undefined,
         message: message,
