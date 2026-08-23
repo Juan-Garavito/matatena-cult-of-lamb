@@ -162,31 +162,115 @@ function renderGame(game) {
   }
 }
 
-function playColumn(columnIndex) {
-  fetch(`${baseUrl}/play/${gameId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id_game: gameId,
-      id_player: currentPlayer.id,
-      column: columnIndex,
-    }),
-  });
+const REFRESH_MARGIN_MS = 5 * 60 * 1000;
+const MIN_REFRESH_DELAY_MS = 30 * 1000;
+let refreshTimer = null;
+let refreshInFlight = null;
+
+function authHeaders(extra = {}) {
+  return { ...extra, Authorization: `Bearer ${gameToken}` };
 }
 
-function resetGame() {
-  fetch(`${baseUrl}/reset-game/${gameId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id_game: gameId,
-      id_player: currentPlayer.id,
-    }),
+function tokenExpiryMs(token) {
+  try {
+    const [, payload] = token.split(".");
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const { exp } = JSON.parse(atob(base64));
+    return typeof exp === "number" ? exp * 1000 : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function scheduleTokenRefresh(expiresAtMs) {
+  clearTimeout(refreshTimer);
+  if (!expiresAtMs) return;
+  const delay = Math.max(
+    expiresAtMs - Date.now() - REFRESH_MARGIN_MS,
+    MIN_REFRESH_DELAY_MS,
+  );
+  refreshTimer = setTimeout(refreshGameToken, delay);
+}
+
+async function requestFreshToken() {
+  try {
+    const response = await fetch(`${baseUrl}/refresh-token/${gameId}`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+    });
+    if (!response.ok) return false;
+
+    const { token, expiresInSeconds } = await response.json();
+    if (!token) return false;
+
+    gameToken = token;
+    localStorage.setItem("gameToken", token);
+    // Realtime holds its own copy of the JWT and drops the socket when it
+    // expires, so the new one has to be handed over here too.
+    await supabase.realtime.setAuth(token);
+    scheduleTokenRefresh(Date.now() + expiresInSeconds * 1000);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function refreshGameToken() {
+  if (!refreshInFlight) {
+    refreshInFlight = requestFreshToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function gameFetch(path, options = {}, allowRetry = true) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: authHeaders(options.headers),
   });
+
+  if (response.status === 401 && allowRetry && (await refreshGameToken())) {
+    return gameFetch(path, options, false);
+  }
+
+  return response;
+}
+
+function handleExpiredSession(response) {
+  if (response.status !== 401 && response.status !== 403) return false;
+  displayMessage("Tu sesión del ritual venció. Volvé a entrar.", "error");
+  setTimeout(leaveGame, 1500);
+  return true;
+}
+
+async function playColumn(columnIndex) {
+  try {
+    const response = await gameFetch(`/play/${gameId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_game: gameId,
+        id_player: currentPlayer.id,
+        column: columnIndex,
+      }),
+    });
+    handleExpiredSession(response);
+  } catch (e) {}
+}
+
+async function resetGame() {
+  try {
+    const response = await gameFetch(`/reset-game/${gameId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_game: gameId,
+        id_player: currentPlayer.id,
+      }),
+    });
+    handleExpiredSession(response);
+  } catch (e) {}
 }
 window.resetGame = resetGame;
 
@@ -198,6 +282,7 @@ function clearStoredGame() {
 
 function leaveGame() {
   leaving = true;
+  clearTimeout(refreshTimer);
   clearStoredGame();
   window.location.href = "/";
 }
@@ -207,7 +292,11 @@ async function closeGameAndLeave() {
   leaving = true;
   try {
     if (gameId) {
-      await fetch(`${baseUrl}/leave-game/${gameId}`, { method: "POST" });
+      await gameFetch(`/leave-game/${gameId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_game: gameId }),
+      });
     }
   } catch (e) {}
   leaveGame();
@@ -215,9 +304,16 @@ async function closeGameAndLeave() {
 
 window.closeGameAndLeave = closeGameAndLeave;
 
+// sendBeacon cannot carry an Authorization header; `keepalive` is the fetch
+// equivalent that both survives the unload and lets us sign the request.
 window.addEventListener("beforeunload", () => {
   if (leaving || !gameId) return;
-  navigator.sendBeacon(`${baseUrl}/leave-game/${gameId}`);
+  fetch(`${baseUrl}/leave-game/${gameId}`, {
+    method: "POST",
+    keepalive: true,
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ id_game: gameId }),
+  }).catch(() => {});
 });
 
 const MESSAGE_COOLDOWN_MS = 1500;
@@ -254,11 +350,9 @@ async function sendMessage() {
   input.value = "";
 
   try {
-    const response = await fetch(`${baseUrl}/message/${gameId}`, {
+    const response = await gameFetch(`/message/${gameId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id_game: gameId,
         id_player: currentPlayer.id,
@@ -275,6 +369,8 @@ async function sendMessage() {
       );
       return;
     }
+
+    if (handleExpiredSession(response)) return;
 
     if (!response.ok) {
       displayMessage("No se pudo enviar el mensaje.", "error");
@@ -314,11 +410,12 @@ function applyGameState(game) {
 
 async function loadInitialState() {
   try {
-    const res = await fetch(`${baseUrl}/game/${gameId}`);
+    const res = await gameFetch(`/game/${gameId}`);
     if (res.status === 404) {
       leaveGame();
       return;
     }
+    if (handleExpiredSession(res)) return;
     if (!res.ok) return;
     const { game } = await res.json();
     applyGameState(game);
@@ -332,6 +429,13 @@ if (!hasSession) throw new Error("Sesión de partida incompleta.");
 // Authorizes this browser against the RLS policies on `realtime.messages`.
 // Must run before `.subscribe()` — a private channel with no token is rejected.
 await supabase.realtime.setAuth(gameToken);
+
+const storedExpiry = tokenExpiryMs(gameToken);
+if (!storedExpiry || storedExpiry - Date.now() <= REFRESH_MARGIN_MS) {
+  await refreshGameToken();
+} else {
+  scheduleTokenRefresh(storedExpiry);
+}
 
 const channel = supabase.channel(gameId, {
   config: { private: true, presence: { key: currentPlayer.id } },
@@ -421,6 +525,7 @@ channel
 window.addEventListener("beforeunload", () => {
   pendingDisconnects.forEach((timer) => clearTimeout(timer));
   pendingDisconnects.clear();
+  clearTimeout(refreshTimer);
 });
 
 const messageInput = document.getElementById("messageInput");

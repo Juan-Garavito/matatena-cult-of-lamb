@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 /**
  * Mints short-lived JWTs so browser clients can subscribe to a private
@@ -17,19 +17,28 @@ import { createHmac } from "crypto";
  * which is why a token issued for one game cannot subscribe to another.
  *
  * Signed with HS256 using the project's JWT secret (Supabase dashboard →
- * Settings → API → JWT Secret). This module only ever SIGNS — verification
- * happens inside Realtime, which already holds the same secret.
+ * Settings → API → JWT Secret). Realtime verifies the token on its side with
+ * the same secret; `verifyGameToken` below is how the game's own HTTP routes
+ * check it, so a player can only act on the game and identity it was cut for.
  */
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET || "";
 
 if (!JWT_SECRET) {
   console.warn(
-    "SUPABASE_JWT_SECRET no está configurada. Los clientes no podrán suscribirse al canal privado.",
+    "SUPABASE_JWT_SECRET no está configurada: los clientes no podrán suscribirse al canal privado y todas las rutas de partida responderán 401.",
   );
 }
 
 /** Long enough to outlast any realistic game, short enough to limit reuse. */
-const TOKEN_TTL_SECONDS = 60 * 60 * 4;
+export const TOKEN_TTL_SECONDS = 60 * 60 * 4;
+
+/**
+ * How long after expiry a token may still be traded for a fresh one. It covers
+ * the laptop that slept through the night, and it is safe to be this generous
+ * because `/refresh-token` also requires the game to still exist with that
+ * player in it — the game's own lifetime is the real bound, not the clock.
+ */
+export const REFRESH_GRACE_SECONDS = 60 * 60 * 24;
 
 const encodeSegment = (value: object): string =>
   Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -53,4 +62,57 @@ export const signGameToken = (id_game: string, id_player: string): string => {
     .digest("base64url");
 
   return `${signingInput}.${signature}`;
+};
+
+export interface GameTokenClaims {
+  sub: string;
+  game_id: string;
+  exp: number;
+}
+
+const decodePayload = (segment: string): Record<string, unknown> | null => {
+  try {
+    const parsed: unknown = JSON.parse(
+      Buffer.from(segment, "base64url").toString("utf8"),
+    );
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+interface VerifyOptions {
+  graceSeconds?: number;
+}
+
+export const verifyGameToken = (
+  token: string,
+  { graceSeconds = 0 }: VerifyOptions = {},
+): GameTokenClaims | null => {
+  if (!JWT_SECRET) return null;
+
+  const [headerSegment, payloadSegment, signature] = token.split(".");
+  if (!headerSegment || !payloadSegment || !signature) return null;
+
+  const expected = createHmac("sha256", JWT_SECRET)
+    .update(`${headerSegment}.${payloadSegment}`)
+    .digest("base64url");
+
+  const provided = Buffer.from(signature);
+  const computed = Buffer.from(expected);
+  if (provided.length !== computed.length) return null;
+  if (!timingSafeEqual(provided, computed)) return null;
+
+  const claims = decodePayload(payloadSegment);
+  if (!claims) return null;
+
+  const { sub, game_id, exp } = claims;
+  if (typeof sub !== "string" || sub.length === 0) return null;
+  if (typeof game_id !== "string" || game_id.length === 0) return null;
+  if (typeof exp !== "number") return null;
+  if ((exp + graceSeconds) * 1000 <= Date.now()) return null;
+
+  return { sub, game_id, exp };
 };

@@ -28,7 +28,13 @@ import {
 } from "./types/game.schema.js";
 import { scheduleAgentRun } from "./agent/scheduler.js";
 import { getBotByGame } from "./agent/data.js";
-import { signGameToken } from "./auth/token.js";
+import {
+  signGameToken,
+  verifyGameToken,
+  REFRESH_GRACE_SECONDS,
+  TOKEN_TTL_SECONDS,
+} from "./auth/token.js";
+import { bearerToken, requireGameToken } from "./auth/guard.js";
 import {
   limitGameAdmin,
   limitGameCreation,
@@ -154,7 +160,53 @@ app.post("/join-game", limitJoins, async (req, res) => {
   }
 });
 
-app.get("/game/:idGame", async (req, res) => {
+app.post("/refresh-token/:idGame", limitGameAdmin, async (req, res) => {
+  const { idGame } = req.params;
+  const token = bearerToken(req);
+  const claims = token
+    ? verifyGameToken(token, { graceSeconds: REFRESH_GRACE_SECONDS })
+    : null;
+
+  if (!claims) {
+    return res.status(401).json({ error: "Sesión inválida o vencida." });
+  }
+
+  if (claims.game_id !== idGame) {
+    return res
+      .status(403)
+      .json({ error: "El token no corresponde a esta partida." });
+  }
+
+  try {
+    const gameWrapper = await getGameById(idGame);
+
+    if (!gameWrapper) {
+      return res.status(404).json({ error: "La partida no existe" });
+    }
+
+    const stillInGame = gameWrapper.game.players.some(
+      (player) => player.id === claims.sub,
+    );
+
+    if (!stillInGame) {
+      return res.status(403).json({ error: "Ya no estás en esta partida." });
+    }
+
+    return res.json({
+      token: signGameToken(idGame, claims.sub),
+      expiresInSeconds: TOKEN_TTL_SECONDS,
+    });
+  } catch (error) {
+    if (error instanceof DbUnavailableError) {
+      return res
+        .status(503)
+        .json({ error: "Servicio no disponible, intenta más tarde." });
+    }
+    throw error;
+  }
+});
+
+app.get("/game/:idGame", requireGameToken, async (req, res) => {
   const { idGame } = req.params;
 
   try {
@@ -175,7 +227,7 @@ app.get("/game/:idGame", async (req, res) => {
   }
 });
 
-app.post("/leave-game/:idGame", limitGameAdmin, async (req, res) => {
+app.post("/leave-game/:idGame", limitGameAdmin, requireGameToken, async (req, res) => {
   const { idGame } = req.params;
 
   try {
@@ -193,7 +245,7 @@ app.post("/leave-game/:idGame", limitGameAdmin, async (req, res) => {
   }
 });
 
-app.post("/play/:idGame", limitPlays, async (req, res) => {
+app.post("/play/:idGame", limitPlays, requireGameToken, async (req, res) => {
   const { success, data: playRequest } = await PlayRequestSchema.safeParseAsync(
     req.body,
   );
@@ -238,9 +290,9 @@ app.post("/play/:idGame", limitPlays, async (req, res) => {
   }
 });
 
-app.post("/reset-game/:idGame", limitGameAdmin, async (req, res) => {
+app.post("/reset-game/:idGame", limitGameAdmin, requireGameToken, async (req, res) => {
   const { idGame } = req.params;
-  const { idPlayer } = req.body;
+  const { id_player: idPlayer } = req.body;
 
   try {
     const result = await resetGame(idGame);
@@ -258,7 +310,7 @@ app.post("/reset-game/:idGame", limitGameAdmin, async (req, res) => {
   }
 });
 
-app.post("/message/:idGame", limitMessages, async (req, res) => {
+app.post("/message/:idGame", limitMessages, requireGameToken, async (req, res) => {
   const { idGame } = req.params;
   const { success, data: messageRequest } =
     await MessageRequestSchema.safeParseAsync(req.body);
